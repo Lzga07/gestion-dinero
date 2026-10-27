@@ -1,0 +1,87 @@
+<style>
+  .phones{display:flex;gap:40px;flex-wrap:wrap;justify-content:center;margin-top:20px}
+  .phone-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;cursor:pointer}
+  .phone-wrap.selected .phone{outline:4px solid #25685b;outline-offset:4px}
+  .phone{width:300px;height:620px;border-radius:34px;background:#f6f4ef;border:10px solid #1d1d1f;overflow:hidden;position:relative;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1f2a2a;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+  .scr{padding:18px 16px 80px;height:100%;box-sizing:border-box;overflow:hidden}
+  .muted{color:#565f5d;font-size:12px}
+  .big{font-size:30px;font-weight:700;letter-spacing:-.5px}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  .card{background:#fff;border-radius:16px;padding:12px 14px;margin-top:10px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .pill{font-size:11px;padding:3px 8px;border-radius:999px;background:#e6f0ed;color:#25685b;font-weight:600}
+  .bar{height:6px;border-radius:3px;background:#e9e6df;margin-top:8px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:#25685b}
+  .nav{position:absolute;bottom:0;left:0;right:0;height:60px;background:#fff;border-top:1px solid #e9e6df;display:flex;justify-content:space-around;align-items:center;font-size:11px;color:#565f5d}
+  .nav b{color:#25685b}
+  .fab{position:absolute;right:16px;bottom:74px;background:#25685b;color:#fff;border-radius:18px;padding:14px 18px;font-weight:600;font-size:14px;box-shadow:0 6px 14px rgba(47,125,109,.35)}
+  .chip{display:inline-block;padding:8px 12px;border-radius:12px;background:#fff;border:1px solid #e1ddd4;font-size:13px;margin:4px 4px 0 0}
+  .chip.on{background:#25685b;color:#fff;border-color:#25685b}
+  .item{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0ede6;font-size:13px}
+  .green{color:#25685b;font-weight:600}
+  .red{color:#9e4430;font-weight:600}
+  h4{margin:16px 0 4px;font-size:13px;color:#565f5d;font-weight:600}
+  .caption{max-width:300px;text-align:center}
+</style>
+
+<h2>Pantalla de inicio: ¿qué debería ver primero al abrir la app?</h2>
+<p class="subtitle">Dos enfoques distintos. Tocá el que te guste más (son bocetos: colores y detalles se pulen después).</p>
+
+<div class="phones">
+
+  <div class="phone-wrap" data-choice="resumen" onclick="toggleSelect(this)">
+    <div class="phone"><div class="scr">
+      <div class="muted">Octubre 2026 · hasta hoy</div>
+      <div class="big">$ 842.500</div>
+      <div class="row muted" style="margin-top:2px"><span>Ganado $ 1.120.000</span><span>Gastos $ 277.500</span></div>
+
+      <h4>Por lugar</h4>
+      <div class="card">
+        <div class="row"><b>Clínica Centro</b><span class="pill">cierra el 31</span></div>
+        <div class="row" style="margin-top:6px"><span class="muted">14 trabajos</span><span class="green">$ 520.000</span></div>
+        <div class="bar"><i style="width:85%"></i></div>
+      </div>
+      <div class="card">
+        <div class="row"><b>Consultorio Sur</b><span class="pill">cierra el 15</span></div>
+        <div class="row" style="margin-top:6px"><span class="muted">6 trabajos</span><span class="green">$ 310.000</span></div>
+        <div class="bar"><i style="width:40%"></i></div>
+      </div>
+      <div class="card">
+        <div class="row"><b>Odonto Norte</b><span class="pill" style="background:#fbe9e3;color:#9e4430">pago pendiente</span></div>
+        <div class="row" style="margin-top:6px"><span class="muted">Sep: esperado $ 290.000</span><span class="red">cobrado $ 250.000</span></div>
+      </div>
+    </div>
+    <div class="fab">+ Anotar trabajo</div>
+    <div class="nav"><b>Inicio</b><span>Movimientos</span><span>Lugares</span><span>Estadísticas</span><span>Más</span></div>
+    </div>
+    <div class="caption"><h3>A · Resumen primero</h3><p class="muted">Ve el saldo del mes y cómo va cada lugar. Anotar un trabajo es el botón flotante.</p></div>
+  </div>
+
+  <div class="phone-wrap" data-choice="anotar" onclick="toggleSelect(this)">
+    <div class="phone"><div class="scr">
+      <div class="row"><b style="font-size:18px">Hola 👋</b><span class="muted">Mar 27 oct</span></div>
+      <div class="card" style="margin-top:12px">
+        <div class="muted">¿Dónde trabajaste hoy?</div>
+        <div><span class="chip on">Clínica Centro</span><span class="chip">Consultorio Sur</span><span class="chip">Odonto Norte</span></div>
+        <div style="margin-top:10px;background:#25685b;color:#fff;text-align:center;border-radius:12px;padding:11px;font-weight:600;font-size:14px">+ Anotar trabajo</div>
+      </div>
+
+      <h4>Hoy</h4>
+      <div class="card" style="padding:4px 14px">
+        <div class="item"><span>Limpieza · Clínica Centro</span><span class="green">$ 25.000</span></div>
+        <div class="item"><span>Arreglo · Clínica Centro</span><span class="green">$ 38.000</span></div>
+        <div class="item" style="border:0"><span>Extracción · Clínica Centro</span><span class="green">$ 30.000</span></div>
+      </div>
+
+      <h4>Este mes</h4>
+      <div class="card">
+        <div class="row"><span class="muted">Saldo hasta hoy</span><b style="font-size:18px">$ 842.500</b></div>
+        <div class="row" style="margin-top:4px"><span class="muted">Ganado</span><span class="green">$ 1.120.000</span></div>
+        <div class="row"><span class="muted">Gastos</span><span class="red">$ 277.500</span></div>
+      </div>
+    </div>
+    <div class="nav"><b>Inicio</b><span>Movimientos</span><span>Lugares</span><span>Estadísticas</span><span>Más</span></div>
+    </div>
+    <div class="caption"><h3>B · Anotar primero</h3><p class="muted">Pensada para cargar en el momento: elegir lugar y anotar en dos toques. El resumen queda abajo.</p></div>
+  </div>
+
+</div>

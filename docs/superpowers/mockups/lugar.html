@@ -1,0 +1,81 @@
+<style>
+  .phones{display:flex;gap:40px;flex-wrap:wrap;justify-content:center;margin-top:20px}
+  .phone-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .phone{width:300px;height:620px;border-radius:34px;background:#f6f4ef;border:10px solid #1d1d1f;overflow:hidden;position:relative;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1f2a2a;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+  .scr{padding:18px 16px 80px;height:100%;box-sizing:border-box;overflow:hidden}
+  .muted{color:#565f5d;font-size:12px}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  .top{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+  .card{background:#fff;border-radius:16px;padding:12px 14px;margin-top:10px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .tabs{display:flex;gap:6px;margin-top:12px}
+  .tab{flex:1;text-align:center;font-size:12px;padding:7px 4px;border-radius:10px;background:#ebe7df;color:#3d4544}
+  .tab.on{background:#25685b;color:#fff;font-weight:600}
+  .item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0ede6;font-size:13px}
+  .item:last-child{border:0}
+  .ok{color:#25685b}
+  .warn{color:#9e4430}
+  .green{color:#25685b;font-weight:600}
+  .red{color:#9e4430;font-weight:600}
+  .btns{display:flex;gap:8px;position:absolute;left:16px;right:16px;bottom:18px}
+  .btn{flex:1;text-align:center;border-radius:14px;padding:12px 6px;font-weight:600;font-size:13px}
+  .btn.p{background:#25685b;color:#fff}
+  .btn.s{background:#fff;border:1px solid #c9c3b7;color:#1f2a2a}
+  .lbl{font-size:12px;color:#565f5d;font-weight:600;margin:12px 0 6px}
+  .field{background:#fff;border:1px solid #ddd8ce;border-radius:12px;padding:10px 12px;font-size:14px}
+  .seg{display:flex;background:#ebe7df;border-radius:12px;padding:3px}
+  .seg span{flex:1;text-align:center;padding:8px;font-size:13px;border-radius:10px;color:#3d4544}
+  .seg span.on{background:#fff;font-weight:600;color:#1f2a2a}
+  .caption{max-width:300px;text-align:center}
+</style>
+
+<h2>Cada lugar: su período y su configuración</h2>
+<p class="subtitle">Izquierda: lo que ve al entrar a un lugar. Derecha: dónde configura el lugar y sus precios.</p>
+
+<div class="phones">
+
+  <div class="phone-wrap">
+    <div class="phone"><div class="scr">
+      <div class="top">← <span>Clínica Centro</span> <span style="margin-left:auto;font-size:15px">⚙</span></div>
+      <div class="tabs"><span class="tab">Sep</span><span class="tab on">1 – 31 oct</span><span class="tab">Historial</span></div>
+      <div class="card">
+        <div class="row"><span class="muted">Te corresponde</span><b style="font-size:22px">$ 520.000</b></div>
+        <div class="row" style="margin-top:4px"><span class="muted">Cobrado</span><span>$ 0</span></div>
+        <div class="row"><span class="muted">Falta cobrar</span><span class="red">$ 520.000</span></div>
+      </div>
+      <div class="card" style="padding:4px 14px">
+        <div class="item"><span>27 oct · Arreglo</span><span>$ 38.000</span></div>
+        <div class="item"><span>27 oct · Limpieza</span><span>$ 25.000</span></div>
+        <div class="item"><span>24 oct · Extracción</span><span>$ 30.000</span></div>
+        <div class="item"><span>22 oct · Arreglo</span><span>$ 38.000</span></div>
+        <div class="item"><span class="muted">+ 10 trabajos más</span><span></span></div>
+      </div>
+    </div>
+    <div class="btns"><div class="btn s">Compartir listado</div><div class="btn p">Registrar pago</div></div>
+    </div>
+    <div class="caption"><h3>Período del lugar</h3><p class="muted">Muestra el período según su día de cierre. "Compartir listado" genera el detalle (PDF o imagen) para mandarlo por WhatsApp o mostrarlo. "Registrar pago" anota lo que le pagaron.</p></div>
+  </div>
+
+  <div class="phone-wrap">
+    <div class="phone"><div class="scr">
+      <div class="top">← <span>Configurar lugar</span></div>
+      <div class="lbl">Nombre</div>
+      <div class="field">Clínica Centro</div>
+      <div class="lbl">Cómo cobra</div>
+      <div class="seg"><span class="on">Arancel fijo</span><span>Porcentaje</span></div>
+      <div class="lbl">Cierra el período el día</div>
+      <div class="field">Último día del mes ▾</div>
+      <div class="lbl">Lista de trabajos y precios</div>
+      <div class="card" style="padding:4px 14px;margin-top:0">
+        <div class="item"><span>Limpieza</span><span>$ 25.000 ✎</span></div>
+        <div class="item"><span>Arreglo</span><span>$ 38.000 ✎</span></div>
+        <div class="item"><span>Extracción</span><span>$ 30.000 ✎</span></div>
+        <div class="item"><span class="ok">+ Agregar trabajo</span><span></span></div>
+      </div>
+      <p class="muted" style="margin-top:10px">Si cambiás un precio, los trabajos ya anotados mantienen el precio que tenían.</p>
+    </div>
+    <div class="btns"><div class="btn p">Guardar</div></div>
+    </div>
+    <div class="caption"><h3>Configuración</h3><p class="muted">Nombre, forma de cobro, día de cierre y la lista de precios (o el % si es por porcentaje). Se puede editar cuando quiera.</p></div>
+  </div>
+
+</div>

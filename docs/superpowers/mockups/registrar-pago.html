@@ -1,0 +1,77 @@
+<style>
+  .phones{display:flex;gap:40px;flex-wrap:wrap;justify-content:center;margin-top:20px}
+  .phone-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .phone{width:300px;height:620px;border-radius:34px;background:#f6f4ef;border:10px solid #1d1d1f;overflow:hidden;position:relative;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1f2a2a;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+  .scr{padding:18px 16px 80px;height:100%;box-sizing:border-box;overflow:hidden}
+  .muted{color:#565f5d;font-size:12px}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  .top{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+  .card{background:#fff;border-radius:16px;padding:12px 14px;margin-top:10px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0ede6;font-size:13px}
+  .item:last-child{border:0}
+  .item .amt{margin-left:auto}
+  .ck{width:18px;height:18px;border-radius:5px;border:2px solid #25685b;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff;flex:none}
+  .ck.on{background:#25685b}
+  .ck.no{border-color:#9e4430}
+  .lbl{font-size:12px;color:#565f5d;font-weight:600;margin:12px 0 6px}
+  .field{background:#fff;border:1px solid #ddd8ce;border-radius:12px;padding:10px 12px;font-size:14px}
+  .money{font-size:20px;font-weight:700}
+  .diff{margin-top:10px;background:#f8e6df;border-radius:14px;padding:10px 14px;color:#7d3524;font-size:13px}
+  .save{position:absolute;left:16px;right:16px;bottom:18px;background:#25685b;color:#fff;text-align:center;border-radius:14px;padding:13px;font-weight:600}
+  .alert{background:#f8e6df;border-left:4px solid #9e4430;border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13px;color:#5e2a1d}
+  .alert b{display:block;margin-bottom:2px;color:#7d3524}
+  .alert .acts{display:flex;gap:8px;margin-top:8px}
+  .alert .acts span{font-size:12px;font-weight:600;padding:6px 10px;border-radius:10px;background:#fff;border:1px solid #d8b5aa}
+  .big{font-size:30px;font-weight:700;letter-spacing:-.5px}
+  .caption{max-width:300px;text-align:center}
+</style>
+
+<h2>Registrar un pago y avisar cuando no llega</h2>
+<p class="subtitle">Izquierda: registrar un pago tildando trabajos. Derecha: el aviso en Inicio cuando pasó la fecha de pago y no se registró nada.</p>
+
+<div class="phones">
+
+  <div class="phone-wrap">
+    <div class="phone"><div class="scr">
+      <div class="top">✕ <span>Pago · Clínica Centro</span></div>
+      <div class="muted" style="margin-top:4px">Período 1 – 30 sep</div>
+      <div class="lbl">¿Cuánto te pagaron?</div>
+      <div class="field money">$ 450.000</div>
+      <div class="lbl">Fecha del pago</div>
+      <div class="field">25 oct</div>
+      <div class="lbl">Trabajos pagados <span style="font-weight:400">(tocá los que NO te pagaron)</span></div>
+      <div class="card" style="padding:2px 14px;margin-top:0">
+        <div class="item"><span class="ck on">✓</span>29 sep · Arreglo<span class="amt">$ 38.000</span></div>
+        <div class="item"><span class="ck no"></span><span class="warn">26 sep · Corona</span><span class="amt warn">$ 45.000</span></div>
+        <div class="item"><span class="ck on">✓</span>25 sep · Limpieza<span class="amt">$ 25.000</span></div>
+        <div class="item"><span class="ck on">✓</span>22 sep · Extracción<span class="amt">$ 30.000</span></div>
+      </div>
+      <div class="diff">Esperabas $ 495.000 · te pagaron $ 450.000<br><b>Falta: 1 trabajo, $ 45.000</b></div>
+    </div>
+    <div class="save">Guardar pago</div>
+    </div>
+    <div class="caption"><h3>Registrar pago</h3><p class="muted">Por defecto todo viene tildado. Destilda lo que no le pagaron y eso queda como "pendiente de reclamar", para incluirlo en un listado de reclamo o cobrarlo después.</p></div>
+  </div>
+
+  <div class="phone-wrap">
+    <div class="phone"><div class="scr">
+      <div class="muted">Octubre 2026 · hasta hoy</div>
+      <div class="big">$ 842.500</div>
+      <div class="alert">
+        <b>Consultorio Sur: sin pago registrado</b>
+        Te pagan entre el 21 y el 31. Septiembre: $ 310.000.
+        <div class="acts"><span>Registrar pago</span><span>No me pagaron</span></div>
+      </div>
+      <div class="alert" style="background:#fbefe0;border-color:#a8641c;color:#5a3a12">
+        <b style="color:#7a4a14">Clínica Centro: 1 trabajo sin pagar</b>
+        Corona del 26 sep, $ 45.000.
+        <div class="acts"><span>Ya me lo pagaron</span><span>Compartir reclamo</span></div>
+      </div>
+      <div class="card"><div class="row"><b>Odonto Norte</b><span class="muted">cierra el 15</span></div><div class="row" style="margin-top:6px"><span class="muted">6 trabajos</span><span style="color:#25685b;font-weight:600">$ 310.000</span></div></div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:#fff;border-top:1px solid #e9e6df;display:flex;justify-content:space-around;align-items:center;font-size:11px;color:#565f5d"><b style="color:#25685b">Inicio</b><span>Movimientos</span><span>Lugares</span><span>Estadísticas</span><span>Más</span></div>
+    </div>
+    <div class="caption"><h3>Avisos en Inicio</h3><p class="muted">Si pasó el rango de pago del lugar y no registró nada, aparece el aviso (y una notificación). Puede registrar el pago o marcar "No me pagaron", que lo deja como deuda pendiente.</p></div>
+  </div>
+
+</div>

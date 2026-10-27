@@ -1,0 +1,23 @@
+# Herramientas de diseño / brainstorming
+.superpowers/
+.impeccable/
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+
+# SO
+.DS_Store
+Thumbs.db

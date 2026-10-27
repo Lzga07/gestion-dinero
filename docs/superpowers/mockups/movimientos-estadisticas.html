@@ -1,0 +1,90 @@
+<style>
+  .phones{display:flex;gap:40px;flex-wrap:wrap;justify-content:center;margin-top:20px}
+  .phone-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .phone{width:300px;height:620px;border-radius:34px;background:#f6f4ef;border:10px solid #1d1d1f;overflow:hidden;position:relative;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1f2a2a;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+  .scr{padding:18px 16px 80px;height:100%;box-sizing:border-box;overflow:hidden}
+  .muted{color:#565f5d;font-size:12px}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  .top{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+  .card{background:#fff;border-radius:16px;padding:12px 14px;margin-top:10px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .seg{display:flex;background:#ebe7df;border-radius:12px;padding:3px;margin-top:10px}
+  .seg span{flex:1;text-align:center;padding:7px;font-size:12px;border-radius:10px;color:#3d4544}
+  .seg span.on{background:#fff;font-weight:600;color:#1f2a2a}
+  .day{font-size:11px;color:#565f5d;font-weight:600;margin:12px 0 2px;text-transform:uppercase;letter-spacing:.4px}
+  .item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0ede6;font-size:13px}
+  .item:last-child{border:0}
+  .ic{width:28px;height:28px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+  .amt{margin-left:auto;font-weight:600}
+  .in{color:#25685b}.out{color:#9e4430}
+  .tag{font-size:11px;padding:1px 6px;border-radius:6px;background:#ebe7df;color:#3d4544;margin-left:4px}
+  .fab{position:absolute;right:16px;bottom:74px;background:#25685b;color:#fff;border-radius:18px;padding:13px 17px;font-weight:600;font-size:14px;box-shadow:0 6px 14px rgba(37,104,91,.35)}
+  .nav{position:absolute;bottom:0;left:0;right:0;height:60px;background:#fff;border-top:1px solid #e9e6df;display:flex;justify-content:space-around;align-items:center;font-size:11px;color:#565f5d}
+  .nav b{color:#25685b}
+  .h{font-size:13px;font-weight:700;margin:0 0 8px}
+  .chart{display:flex;align-items:flex-end;gap:10px;height:120px;padding-top:6px}
+  .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .stack{width:100%;display:flex;flex-direction:column-reverse;border-radius:6px 6px 0 0;overflow:hidden}
+  .s1{background:#25685b}.s2{background:#7fb3a7}.s3{background:#c9a35b}
+  .lg{display:flex;gap:10px;font-size:11px;color:#3d4544;margin-top:8px;flex-wrap:wrap}
+  .lg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px}
+  .hb{margin:6px 0}
+  .hb .row{font-size:12px}
+  .hb .track{height:8px;background:#ebe7df;border-radius:4px;margin-top:3px;overflow:hidden}
+  .hb .track i{display:block;height:100%;background:#9e4430;border-radius:4px}
+  .caption{max-width:300px;text-align:center}
+</style>
+
+<h2>Movimientos y estadísticas</h2>
+<p class="subtitle">Izquierda: todo lo que entra y sale. Derecha: las dos preguntas que pediste, cuánto gana por lugar y en qué gasta más.</p>
+
+<div class="phones">
+
+  <div class="phone-wrap">
+    <div class="phone"><div class="scr">
+      <div class="top">Movimientos <span class="muted" style="margin-left:auto;font-weight:400">Oct ▾</span></div>
+      <div class="seg"><span class="on">Todo</span><span>Ingresos</span><span>Gastos</span></div>
+      <div class="day">Hoy</div>
+      <div class="card" style="padding:2px 14px;margin-top:4px">
+        <div class="item"><span class="ic" style="background:#e3efeb">🦷</span>Arreglo · Clínica Centro<span class="amt in">+38.000</span></div>
+        <div class="item"><span class="ic" style="background:#f6e3dc">🧪</span>Materiales<span class="tag">trabajo</span><span class="amt out">−22.000</span></div>
+        <div class="item"><span class="ic" style="background:#f6e3dc">🛒</span>Supermercado<span class="tag">personal</span><span class="amt out">−41.500</span></div>
+      </div>
+      <div class="day">Ayer</div>
+      <div class="card" style="padding:2px 14px;margin-top:4px">
+        <div class="item"><span class="ic" style="background:#e3efeb">💵</span>Venta usado<span class="tag">otro ingreso</span><span class="amt in">+60.000</span></div>
+        <div class="item"><span class="ic" style="background:#f6e3dc">⛽</span>Combustible<span class="tag">trabajo</span><span class="amt out">−18.000</span></div>
+      </div>
+    </div>
+    <div class="fab">+ Nuevo</div>
+    <div class="nav"><span>Inicio</span><b>Movimientos</b><span>Lugares</span><span>Estadísticas</span><span>Más</span></div>
+    </div>
+    <div class="caption"><h3>Movimientos</h3><p class="muted">Una sola lista con trabajos, otros ingresos y gastos. "+ Nuevo" pregunta qué cargar: trabajo, gasto u otro ingreso. Cada gasto tiene categoría y va marcado como de trabajo o personal.</p></div>
+  </div>
+
+  <div class="phone-wrap">
+    <div class="phone"><div class="scr">
+      <div class="top">Estadísticas <span class="muted" style="margin-left:auto;font-weight:400">Últimos 4 meses ▾</span></div>
+      <div class="card">
+        <div class="h">Cuánto ganás por lugar</div>
+        <div class="chart">
+          <div class="col"><div class="stack" style="height:70px"><i class="s1" style="height:40px;display:block"></i><i class="s2" style="height:20px;display:block"></i><i class="s3" style="height:10px;display:block"></i></div><span class="muted">Jul</span></div>
+          <div class="col"><div class="stack" style="height:88px"><i class="s1" style="height:46px;display:block"></i><i class="s2" style="height:26px;display:block"></i><i class="s3" style="height:16px;display:block"></i></div><span class="muted">Ago</span></div>
+          <div class="col"><div class="stack" style="height:80px"><i class="s1" style="height:44px;display:block"></i><i class="s2" style="height:22px;display:block"></i><i class="s3" style="height:14px;display:block"></i></div><span class="muted">Sep</span></div>
+          <div class="col"><div class="stack" style="height:104px"><i class="s1" style="height:52px;display:block"></i><i class="s2" style="height:32px;display:block"></i><i class="s3" style="height:20px;display:block"></i></div><span class="muted">Oct</span></div>
+        </div>
+        <div class="lg"><span><i class="s1"></i>Clínica Centro</span><span><i class="s2"></i>Consultorio Sur</span><span><i class="s3"></i>Odonto Norte</span></div>
+      </div>
+      <div class="card">
+        <div class="h">En qué gastás más · Oct</div>
+        <div class="hb"><div class="row"><span>Supermercado</span><span>$ 120.000</span></div><div class="track"><i style="width:100%"></i></div></div>
+        <div class="hb"><div class="row"><span>Materiales</span><span>$ 64.000</span></div><div class="track"><i style="width:53%"></i></div></div>
+        <div class="hb"><div class="row"><span>Combustible</span><span>$ 52.000</span></div><div class="track"><i style="width:43%"></i></div></div>
+        <div class="hb"><div class="row"><span>Servicios</span><span>$ 41.500</span></div><div class="track"><i style="width:35%"></i></div></div>
+      </div>
+    </div>
+    <div class="nav"><span>Inicio</span><span>Movimientos</span><span>Lugares</span><b>Estadísticas</b><span>Más</span></div>
+    </div>
+    <div class="caption"><h3>Estadísticas</h3><p class="muted">Barras por mes divididas por lugar, y ranking de categorías de gasto. Tocar un mes o categoría muestra el detalle.</p></div>
+  </div>
+
+</div>

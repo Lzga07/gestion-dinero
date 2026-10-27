@@ -1,0 +1,73 @@
+<style>
+  .phones{display:flex;gap:40px;flex-wrap:wrap;justify-content:center;margin-top:20px}
+  .phone-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .phone{width:300px;height:620px;border-radius:34px;background:#f6f4ef;border:10px solid #1d1d1f;overflow:hidden;position:relative;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1f2a2a;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+  .scr{padding:18px 16px 80px;height:100%;box-sizing:border-box;overflow:hidden}
+  .muted{color:#565f5d;font-size:12px}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  .lbl{font-size:12px;color:#565f5d;font-weight:600;margin:14px 0 6px}
+  .field{background:#fff;border:1px solid #ddd8ce;border-radius:12px;padding:11px 12px;font-size:14px}
+  .field.money{font-size:20px;font-weight:700}
+  .chip{display:inline-block;padding:7px 11px;border-radius:12px;background:#fff;border:1px solid #ddd8ce;font-size:13px;margin:0 4px 6px 0}
+  .chip.on{background:#25685b;color:#fff;border-color:#25685b}
+  .chip small{opacity:.8}
+  .result{margin-top:16px;background:#e3efeb;border-radius:14px;padding:12px 14px}
+  .result b{font-size:22px;color:#1d5348}
+  .save{position:absolute;left:16px;right:16px;bottom:18px;background:#25685b;color:#fff;text-align:center;border-radius:14px;padding:14px;font-weight:600}
+  .top{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+  .opt{color:#565f5d;font-weight:400}
+  .caption{max-width:300px;text-align:center}
+</style>
+
+<h2>Anotar un trabajo: el formulario cambia según el lugar</h2>
+<p class="subtitle">Izquierda: lugar con arancel fijo. Derecha: lugar con porcentaje y un descuento. ¿Falta o sobra algún dato?</p>
+
+<div class="phones">
+
+  <div class="phone-wrap">
+    <div class="phone"><div class="scr">
+      <div class="top">✕ <span>Nuevo trabajo</span></div>
+      <div class="lbl">Lugar</div>
+      <div class="field">Clínica Centro <span class="opt">· arancel fijo</span> ▾</div>
+      <div class="lbl">Fecha</div>
+      <div class="field">Hoy, 27 oct</div>
+      <div class="lbl">¿Qué hiciste?</div>
+      <div>
+        <span class="chip">Limpieza <small>$25.000</small></span>
+        <span class="chip on">Arreglo <small>$38.000</small></span>
+        <span class="chip">Extracción <small>$30.000</small></span>
+        <span class="chip">Otro…</span>
+      </div>
+      <div class="lbl">Nota <span class="opt">(opcional)</span></div>
+      <div class="field opt">Ej: nombre o referencia</div>
+      <div class="result"><div class="muted">Te corresponde</div><b>$ 38.000</b></div>
+    </div>
+    <div class="save">Guardar</div>
+    </div>
+    <div class="caption"><h3>Arancel fijo</h3><p class="muted">Elige el tipo de trabajo y el monto sale solo de la lista del lugar. Si no está en la lista, usa "Otro…" y escribe el monto a mano.</p></div>
+  </div>
+
+  <div class="phone-wrap">
+    <div class="phone"><div class="scr">
+      <div class="top">✕ <span>Nuevo trabajo</span></div>
+      <div class="lbl">Lugar</div>
+      <div class="field">Consultorio Sur <span class="opt">· 40%</span> ▾</div>
+      <div class="lbl">Fecha</div>
+      <div class="field">Hoy, 27 oct</div>
+      <div class="lbl">¿Qué hiciste?</div>
+      <div class="field">Corona</div>
+      <div class="lbl">Lo que pagó el paciente / cliente</div>
+      <div class="field money">$ 200.000</div>
+      <div class="lbl">Descuento antes del % <span class="opt">(opcional)</span></div>
+      <div class="field">$ 50.000 <span class="opt">· laboratorio</span></div>
+      <div class="result">
+        <div class="muted">(200.000 − 50.000) × 40%</div>
+        <div class="row"><span class="muted">Te corresponde</span><b>$ 60.000</b></div>
+      </div>
+    </div>
+    <div class="save">Guardar</div>
+    </div>
+    <div class="caption"><h3>Porcentaje</h3><p class="muted">Escribe lo que pagó el cliente y, si hay, el descuento. La cuenta queda a la vista para que no haya dudas.</p></div>
+  </div>
+
+</div>
