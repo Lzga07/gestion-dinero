@@ -44,7 +44,11 @@ function cierreAnterior(fin: FechaISO, dia: DiaCierre): FechaISO {
   return cierreEnMes(ant.y, ant.m, dia);
 }
 
-/** Última regla con `vigenteDesde <= fecha`; si no hay (fecha anterior a todas), la más antigua. */
+/**
+ * Regla efectiva para `fecha`: la última con `vigenteDesde <= fecha`. La regla más antigua rige desde
+ * el inicio de los tiempos aunque su `vigenteDesde` sea posterior, así el período siempre contiene la
+ * fecha y los períodos quedan contiguos.
+ */
 function reglaVigente(reglas: ReglaCierre[], fecha: FechaISO): ReglaCierre {
   let elegida: ReglaCierre | undefined;
   let masAntigua: ReglaCierre | undefined;
@@ -52,9 +56,9 @@ function reglaVigente(reglas: ReglaCierre[], fecha: FechaISO): ReglaCierre {
     if (!masAntigua || r.vigenteDesde < masAntigua.vigenteDesde) masAntigua = r;
     if (r.vigenteDesde <= fecha && (!elegida || r.vigenteDesde >= elegida.vigenteDesde)) elegida = r;
   }
-  const regla = elegida ?? masAntigua;
-  if (!regla) throw new Error('Se necesita al menos una regla de cierre');
-  return regla;
+  if (!masAntigua) throw new Error('Se necesita al menos una regla de cierre');
+  if (!elegida || elegida === masAntigua) return { vigenteDesde: INICIO_DE_LOS_TIEMPOS, dia: masAntigua.dia };
+  return elegida;
 }
 
 export function periodoQueContiene(reglas: ReglaCierre[], fecha: FechaISO): Periodo {
@@ -72,14 +76,20 @@ export function periodosEntre(reglas: ReglaCierre[], desde: FechaISO, hasta: Fec
   while (p.fin >= desde) {
     lista.push(p);
     if (p.inicio <= INICIO_DE_LOS_TIEMPOS) break;
-    p = periodoQueContiene(reglas, sumarDias(p.inicio, -1));
+    const anterior = periodoQueContiene(reglas, sumarDias(p.inicio, -1));
+    if (anterior.inicio >= p.inicio) break; // garantiza progreso
+    p = anterior;
   }
   return lista;
 }
 
 /** El cambio rige desde el próximo período; reemplaza cualquier cambio futuro ya anotado. */
 export function cambiarDiaCierre(reglas: ReglaCierre[], nuevo: DiaCierre, hoy: FechaISO): ReglaCierre[] {
-  const vigentes = reglas.filter(r => r.vigenteDesde <= hoy);
+  let vigentes = reglas.filter(r => r.vigenteDesde <= hoy);
+  if (vigentes.length === 0 && reglas.length > 0) {
+    // `hoy` es anterior a todas las reglas: se conserva la más antigua como base de la historia.
+    vigentes = [{ vigenteDesde: INICIO_DE_LOS_TIEMPOS, dia: reglaVigente(reglas, hoy).dia }];
+  }
   const { fin } = periodoQueContiene(vigentes, hoy);
   return [...vigentes, { vigenteDesde: sumarDias(fin, 1), dia: nuevo }];
 }

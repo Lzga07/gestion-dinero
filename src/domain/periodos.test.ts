@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { sumarDias } from './dates';
 import {
   INICIO_DE_LOS_TIEMPOS,
   cambiarDiaCierre,
@@ -49,4 +50,23 @@ test('nombrePeriodo: mismo mes, meses distintos y cruce de año', () => {
   expect(nombrePeriodo({ inicio: '2026-10-01', fin: '2026-10-31' })).toBe('1 – 31 oct');
   expect(nombrePeriodo({ inicio: '2026-10-16', fin: '2026-11-15' })).toBe('16 oct – 15 nov');
   expect(nombrePeriodo({ inicio: '2026-12-16', fin: '2027-01-15' })).toBe('16 dic – 15 ene');
+});
+
+test('fecha anterior a la primera regla: el período la contiene', () => {
+  const r = [{ vigenteDesde: '2020-01-01', dia: 15 }];
+  expect(periodoQueContiene(r, '2019-05-05')).toEqual({ inicio: '2019-04-16', fin: '2019-05-15' });
+});
+test('periodosEntre con la primera regla posterior al rango termina y es contiguo', () => {
+  const r = [{ vigenteDesde: '2020-01-01', dia: 15 }];
+  const ps = periodosEntre(r, '2019-06-01', '2020-05-10');
+  expect(ps.length).toBeGreaterThan(1);
+  for (let i = 0; i < ps.length - 1; i++) expect(ps[i + 1].fin).toBe(sumarDias(ps[i].inicio, -1));
+  expect(ps[0].inicio <= '2020-05-10' && '2020-05-10' <= ps[0].fin).toBe(true);
+  const ultimo = ps[ps.length - 1];
+  expect(ultimo.inicio <= '2019-06-01' && '2019-06-01' <= ultimo.fin).toBe(true);
+});
+test('cambiarDiaCierre con hoy anterior a todas las reglas no falla', () => {
+  const r = cambiarDiaCierre([{ vigenteDesde: '2020-01-01', dia: 15 }], 10, '2019-05-05');
+  expect(r.at(-1)).toEqual({ vigenteDesde: '2019-05-16', dia: 10 });
+  expect(periodoQueContiene(r, '2019-05-05')).toEqual({ inicio: '2019-04-16', fin: '2019-05-15' });
 });
