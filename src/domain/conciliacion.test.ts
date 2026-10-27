@@ -98,6 +98,23 @@ test('A_CUENTA deja destildados PENDIENTE y no genera deuda', () => {
   expect(r.faltaCobrar).toBe(29500000);
 });
 
+test('A_CUENTA no borra una deuda ya declarada: NO_PAGADO sigue NO_PAGADO y PENDIENTE sigue PENDIENTE', () => {
+  const trabajos = [
+    t('ok', '2026-09-03', 10000000),
+    t('deuda', '2026-09-10', 25000000, 'NO_PAGADO'),
+    t('pend', '2026-09-20', 4500000, 'PENDIENTE'),
+  ];
+  const [ok, deuda, pend] = trabajos;
+  const p = pago('p1', SEP.fin, 10000000, 'A_CUENTA');
+  const cambios = resolverPago({ pago: p, tildados: [ok], destildados: [deuda, pend] });
+  expect(cambios.find(c => c.id === 'deuda')).toEqual({ id: 'deuda', estado: 'NO_PAGADO', pagoId: null });
+  expect(cambios.find(c => c.id === 'pend')).toEqual({ id: 'pend', estado: 'PENDIENTE', pagoId: null });
+  const r = resumenPeriodo(lugarUlt, SEP, aplicar(trabajos, cambios), [p]);
+  expect(r.noPagados.map(x => x.id)).toEqual(['deuda']);
+  expect(r.pendientes.map(x => x.id)).toEqual(['pend']);
+  expect(r.deudaPlata).toBe(0);
+});
+
 test('A_CUENTA y después FINAL por el resto exacto: falta 10.000 y es deuda', () => {
   const trabajos = [t('x', '2026-09-03', 21000000), t('y', '2026-09-10', 24000000), t('z', '2026-09-20', 4500000)];
   const [x, y, z] = trabajos;

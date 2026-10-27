@@ -16,13 +16,15 @@ export interface CambioTrabajo {
 
 /**
  * Cambios que produce registrar un pago: los tildados pasan a PAGADO asociados al pago; los destildados
- * pasan a NO_PAGADO si el pago es FINAL y quedan PENDIENTE si es A_CUENTA. Lo que no se ofrece no cambia.
+ * pasan a NO_PAGADO si el pago es FINAL; si es A_CUENTA conservan su estado (un NO_PAGADO sigue siendo deuda
+ * declarada y un PENDIENTE sigue pendiente). Lo que no se ofrece no cambia.
  */
 export function resolverPago(a: { pago: Pago; tildados: Trabajo[]; destildados: Trabajo[] }): CambioTrabajo[] {
-  const estadoDestildado: EstadoPago = a.pago.tipo === 'FINAL' ? 'NO_PAGADO' : 'PENDIENTE';
+  const estadoDestildado = (tr: Trabajo): EstadoPago =>
+    a.pago.tipo === 'FINAL' || tr.estado === 'NO_PAGADO' ? 'NO_PAGADO' : 'PENDIENTE';
   return [
     ...a.tildados.map(tr => ({ id: tr.id, estado: 'PAGADO' as const, pagoId: a.pago.id })),
-    ...a.destildados.map(tr => ({ id: tr.id, estado: estadoDestildado, pagoId: null })),
+    ...a.destildados.map(tr => ({ id: tr.id, estado: estadoDestildado(tr), pagoId: null })),
   ];
 }
 
