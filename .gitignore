@@ -21,3 +21,25 @@ captures/
 # SO
 .DS_Store
 Thumbs.db
+
+# Node / Vite
+logs
+*.log
+npm-debug.log*
+node_modules
+dist
+dist-ssr
+*.local
+
+# Tests
+test-results/
+playwright-report/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
