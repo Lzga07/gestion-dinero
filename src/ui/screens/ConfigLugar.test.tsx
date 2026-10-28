@@ -314,7 +314,7 @@ describe('lista de lugares', () => {
     await db.lugares.update(viejo, { archivado: true })
     renderEn('/lugares')
 
-    expect(await screen.findByRole('link', { name: /Clínica Centro/ })).toHaveAttribute('href', `/lugares/${a}/config`)
+    expect(await screen.findByRole('link', { name: /Clínica Centro/ })).toHaveAttribute('href', `/lugares/${a}`)
     expect(screen.getByRole('link', { name: /Consultorio Sur/ })).toHaveTextContent('37,5 %')
     expect(screen.getByRole('link', { name: '+ Agregar lugar' })).toHaveAttribute('href', '/lugares/nuevo')
     const archivados = screen.getByText('Archivados (1)').closest('details')!

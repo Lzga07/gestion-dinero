@@ -14,8 +14,7 @@ function resumen(l: Lugar): string {
 
 function FilaLugar({ lugar }: { lugar: Lugar }) {
   return (
-    // TODO(Tarea 11): ir a /lugares/:id (período del lugar) en vez de a la configuración.
-    <Link className="lugar-row" to={`/lugares/${lugar.id}/config`}>
+    <Link className="lugar-row" to={`/lugares/${lugar.id}`}>
       <span className="lugar-row__nombre">{lugar.nombre}</span>
       <span className="lugar-row__detalle">{resumen(lugar)}</span>
     </Link>

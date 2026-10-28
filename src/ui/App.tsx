@@ -7,6 +7,8 @@ import Inicio from './screens/Inicio'
 import Lugares from './screens/Lugares'
 import Mas from './screens/Mas'
 import Movimientos from './screens/Movimientos'
+import PeriodoLugar from './screens/PeriodoLugar'
+import RegistrarPago from './screens/RegistrarPago'
 
 export default function App() {
   return (
@@ -18,7 +20,9 @@ export default function App() {
             <Route path="/movimientos" element={<Movimientos />} />
             <Route path="/lugares" element={<Lugares />} />
             <Route path="/lugares/nuevo" element={<ConfigLugar />} />
+            <Route path="/lugares/:id" element={<PeriodoLugar />} />
             <Route path="/lugares/:id/config" element={<ConfigLugar />} />
+            <Route path="/lugares/:id/pago" element={<RegistrarPago />} />
             <Route path="/trabajo/nuevo" element={<FormTrabajo />} />
             <Route path="/trabajo/:id" element={<FormTrabajo />} />
             <Route path="/estadisticas" element={<Estadisticas />} />

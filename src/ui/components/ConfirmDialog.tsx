@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import Button from './Button'
 
 interface ConfirmDialogProps {
@@ -13,6 +13,8 @@ interface ConfirmDialogProps {
   cancelar?: string | null
   /** Tercera respuesta (botón secundario entre "Cancelar" y "Confirmar"), p. ej. Sí / No / Todavía no sé. */
   alternativa?: { texto: string; onClick: () => void }
+  /** Contenido propio (campos, avisos) entre el texto y los botones. */
+  children?: ReactNode
 }
 
 const FOCUSABLES = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -27,6 +29,7 @@ export default function ConfirmDialog({
   peligro = false,
   cancelar = 'Cancelar',
   alternativa,
+  children,
 }: ConfirmDialogProps) {
   const id = useId()
   const caja = useRef<HTMLDivElement>(null)
@@ -78,6 +81,7 @@ export default function ConfirmDialog({
         <p className="dialog__text" id={`${id}-texto`}>
           {texto}
         </p>
+        {children}
         <div className="dialog__actions">
           {cancelar !== null && (
             <Button ref={cancelRef} variante="secundario" onClick={onCancel}>

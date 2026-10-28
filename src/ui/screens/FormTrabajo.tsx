@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { guardarAjuste, leerAjuste } from '../../data/ajustes'
 import { db } from '../../data/db'
 import { marcarNoPagado, yaMeLoPagaron } from '../../data/pagos'
@@ -17,8 +17,10 @@ import type { Lugar, TipoTrabajo, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
 import MoneyInput, { ERROR_MONTO } from '../components/MoneyInput'
+import useVolver from '../components/useVolver'
 
 const AVISO_EN_PAGO = 'Este trabajo ya está en un pago: cambiarlo modifica la conciliación de ese período'
 
@@ -41,26 +43,6 @@ interface Datos {
 }
 
 const porNombre = (a: Lugar, b: Lugar) => a.nombre.localeCompare(b.nombre, 'es')
-
-function Encabezado({ titulo, onCerrar }: { titulo: string; onCerrar: () => void }) {
-  return (
-    <header className="screen-header">
-      <button type="button" className="screen-header__back" aria-label="Cerrar" onClick={onCerrar}>
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </button>
-      <h1 className="screen-title screen-title--inline">{titulo}</h1>
-    </header>
-  )
-}
-
-/** Vuelve a la pantalla anterior; si se abrió directo esta pantalla, va a Inicio. */
-function useVolver() {
-  const navigate = useNavigate()
-  const { key } = useLocation()
-  return () => (key === 'default' ? navigate('/') : navigate(-1))
-}
 
 /** Pantalla de alta (`/trabajo/nuevo?lugar=<id>`) y de edición (`/trabajo/:id`). */
 export default function FormTrabajo() {
