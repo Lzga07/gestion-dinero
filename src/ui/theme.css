@@ -385,9 +385,8 @@ select.input {
 
 .trabajo-fila {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   padding-bottom: 12px;
   margin-bottom: 12px;
   border-bottom: 1px solid var(--line);
@@ -395,7 +394,8 @@ select.input {
 
 .trabajo-fila__campos {
   display: grid;
-  grid-template-columns: 1fr 9rem;
+  /* El nombre ocupa ~60 % del ancho y el precio el resto (alcanza para "$ 999.999"). */
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 8px;
   min-width: 0;
 }
@@ -405,8 +405,8 @@ select.input {
 }
 
 .trabajo-fila__quitar {
+  justify-self: end;
   color: var(--neg);
-  margin-bottom: 2px;
 }
 
 .pago-rango {
@@ -421,6 +421,29 @@ select.input {
 
 .form__guardar {
   margin-top: 20px;
+}
+
+/* Anotar trabajo: "Te corresponde" y Guardar en una franja fija inferior, por encima de la navegación. */
+.form__barra {
+  position: sticky;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 8px);
+  z-index: 1;
+  margin-top: 16px;
+  box-shadow: 0 0 0 8px var(--bg);
+  background: var(--bg);
+}
+
+.form__barra .resultado {
+  margin-top: 0;
+}
+
+.form__barra .form__guardar {
+  margin-top: 8px;
+}
+
+/* Un campo enfocado no queda tapado por la franja fija. */
+.form--con-barra .input {
+  scroll-margin-bottom: 11rem;
 }
 
 .form__error {
@@ -894,6 +917,14 @@ a.screen-header__back {
 
 .tilde__estado {
   font-size: 0.8125rem;
+}
+
+/* Nota del trabajo, debajo de "fecha · descripción" */
+.nota-trabajo {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .grupo-tildable > .card + .card {

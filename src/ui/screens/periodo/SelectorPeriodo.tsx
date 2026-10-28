@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { hoy, sumarDias, type FechaISO } from '../../../domain/dates'
-import { formatPesos } from '../../../domain/money'
 import { nombrePeriodo, periodoQueContiene, periodosEntre, type Periodo } from '../../../domain/periodos'
 import type { Lugar, Trabajo } from '../../../domain/types'
 import Card from '../../components/Card'
 import { finDe, sumaMontos } from './utils'
+import { pesosJuntos } from '../../pesos'
 
 interface SelectorPeriodoProps {
   lugar: Lugar
@@ -77,7 +77,7 @@ function Historial({
             onClick={() => onElegir(p.fin)}
           >
             <span>{nombrePeriodo(p)}</span>
-            <strong>{formatPesos(total(p))}</strong>
+            <strong>{pesosJuntos(total(p))}</strong>
           </button>
         </li>
       ))}

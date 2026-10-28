@@ -1,11 +1,11 @@
 import { useId, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Aviso } from '../../domain/avisos'
-import { formatPesos } from '../../domain/money'
 import { nombrePeriodo, type Periodo } from '../../domain/periodos'
 import type { Lugar } from '../../domain/types'
 import { plural } from '../screens/periodo/utils'
 import Button from './Button'
+import { pesosJuntos } from '../pesos'
 
 interface AvisoCardProps {
   aviso: Aviso
@@ -57,7 +57,7 @@ function contenido(aviso: Aviso, lugar: Lugar | undefined, onNoMePagaron: AvisoC
       nivel: 'alerta',
       titulo: `${lugar.nombre}: sin pago registrado`,
       lineas: [
-        `Te pagan entre el ${lugar.pagoDesdeDia} y el ${lugar.pagoHastaDia}. ${nombrePeriodo(aviso.periodo)}: ${formatPesos(aviso.monto)}.`,
+        `Te pagan entre el ${lugar.pagoDesdeDia} y el ${lugar.pagoHastaDia}. ${nombrePeriodo(aviso.periodo)}: ${pesosJuntos(aviso.monto)}.`,
       ],
       acciones: (
         <>
@@ -76,10 +76,10 @@ function contenido(aviso: Aviso, lugar: Lugar | undefined, onNoMePagaron: AvisoC
     const diferencias = aviso.deudasPlata.reduce((s, d) => s + d.monto, 0)
     return {
       nivel: 'alerta',
-      titulo: `${lugar.nombre}: te deben ${formatPesos(aviso.monto)}`,
+      titulo: `${lugar.nombre}: te deben ${pesosJuntos(aviso.monto)}`,
       lineas: [
         ...(aviso.noPagados.length > 0 ? [`${plural(aviso.noPagados.length, 'trabajo', 'trabajos')} sin pagar`] : []),
-        ...(diferencias > 0 ? [`Diferencias en pagos: ${formatPesos(diferencias)}`] : []),
+        ...(diferencias > 0 ? [`Diferencias en pagos: ${pesosJuntos(diferencias)}`] : []),
       ],
       acciones: (
         <>

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -100,6 +100,18 @@ describe('porcentaje', () => {
       await screen.findByText('Monto inválido. Usá coma para los decimales (ej: 1.234,50)'),
     ).toBeInTheDocument()
     expect(await db.trabajos.count()).toBe(0)
+  })
+})
+
+describe('franja fija inferior', () => {
+  test('"Te corresponde" va junto a Guardar, con "—" si todavía no hay datos', async () => {
+    const { id } = await lugarConArreglo()
+    renderEn(`/trabajo/nuevo?lugar=${id}`)
+    const guardar = await screen.findByRole('button', { name: 'Guardar' })
+    const barra = guardar.closest('.form__barra') as HTMLElement
+    expect(barra).not.toBeNull()
+    expect(within(barra).getByText('Te corresponde')).toBeInTheDocument()
+    expect(within(barra).getByText('—')).toBeInTheDocument()
   })
 })
 

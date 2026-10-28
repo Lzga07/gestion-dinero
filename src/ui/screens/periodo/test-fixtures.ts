@@ -3,13 +3,13 @@ import { guardarTrabajo } from '../../../data/trabajos'
 import type { FechaISO } from '../../../domain/dates'
 
 /** Anota un trabajo de arancel fijo con descripción; `pesos` en pesos enteros. */
-export async function anotar(lugarId: string, fecha: FechaISO, descripcion: string, pesos: number): Promise<string> {
+export async function anotar(lugarId: string, fecha: FechaISO, descripcion: string, pesos: number, nota = ''): Promise<string> {
   // Con la fecha simulada el reloj no avanza: se lo mueve 1 ms para que `creadoEn` ordene los trabajos.
   if (vi.isFakeTimers()) vi.advanceTimersByTime(1)
   const monto = pesos * 100
   const { id } = await guardarTrabajo({
     lugarId, fecha, descripcion, tipoTrabajoId: null, precioLista: monto,
-    montoCliente: null, descuento: null, descuentoMotivo: null, porcentajeBp: null, monto, nota: '',
+    montoCliente: null, descuento: null, descuentoMotivo: null, porcentajeBp: null, monto, nota,
   })
   return id
 }

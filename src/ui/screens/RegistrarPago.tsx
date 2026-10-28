@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { registrarPago } from '../../data/pagos'
 import { requierePregunta, resumenPeriodo, trabajosOfrecidosParaPago } from '../../domain/conciliacion'
 import { hoy } from '../../domain/dates'
-import { formatPesos, type Centavos } from '../../domain/money'
+import type { Centavos } from '../../domain/money'
 import { nombrePeriodo, type Periodo } from '../../domain/periodos'
 import type { Lugar, Pago, TipoPago, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
@@ -13,6 +13,7 @@ import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
 import MoneyInput, { ERROR_MONTO } from '../components/MoneyInput'
 import useVolver from '../components/useVolver'
+import { pesosJuntos } from '../pesos'
 import ListaTildable from './periodo/ListaTildable'
 import { ordenarTrabajos, periodoPedido, plural, sumaMontos, useDatosLugar } from './periodo/utils'
 
@@ -35,6 +36,15 @@ export default function RegistrarPago() {
   }
   const periodo = periodoPedido(datos.lugar, params.get('periodo'), hoy())
   return <Formulario key={`${datos.lugar.id}${periodo.fin}`} lugar={datos.lugar} trabajos={datos.trabajos} pagos={datos.pagos} periodo={periodo} />
+}
+
+/** "En total falta $ 38.000: 1 trabajo ($ 30.000) y $ 8.000 de diferencia"; si hay solo uno de los dos, solo ese. */
+function textoFaltante(trabajos: number, montoTrabajos: Centavos, diferencia: Centavos): string {
+  const total = `En total falta ${pesosJuntos(montoTrabajos + diferencia)}`
+  if (trabajos > 0 && diferencia > 0)
+    return `${total}: ${plural(trabajos, 'trabajo', 'trabajos')} (${pesosJuntos(montoTrabajos)}) y ${pesosJuntos(diferencia)} de diferencia`
+  if (trabajos > 0) return `${total}: ${plural(trabajos, 'trabajo', 'trabajos')}`
+  return `${total} de diferencia`
 }
 
 function Formulario({ lugar, trabajos, pagos, periodo }: { lugar: Lugar; trabajos: Trabajo[]; pagos: Pago[]; periodo: Periodo }) {
@@ -124,6 +134,9 @@ function Formulario({ lugar, trabajos, pagos, periodo }: { lugar: Lugar; trabajo
   }
 
   const diferencia = recibido === null ? 0 : recibido - esperadoPregunta
+  const plataSinTrabajo = Math.max(0, -diferencia)
+  const montoSinTildar = sumaMontos(sinTildar)
+  const faltante = montoSinTildar + plataSinTrabajo
 
   return (
     <section>
@@ -176,15 +189,14 @@ function Formulario({ lugar, trabajos, pagos, periodo }: { lugar: Lugar; trabajo
           </fieldset>
         )}
 
-        {saldoPlata > 0 && <p className="saldo-pendiente">{`Saldo pendiente del período: ${formatPesos(saldoPlata)}`}</p>}
+        {saldoPlata > 0 && <p className="saldo-pendiente">{`Saldo pendiente del período: ${pesosJuntos(saldoPlata)}`}</p>}
 
         <div className={`diferencia-viva${recibido !== null && diferencia === 0 && sinTildar.length === 0 ? ' diferencia-viva--ok' : ''}`} aria-live="polite">
-          <p>{recibido === null ? `Esperabas ${formatPesos(esperado)}` : `Esperabas ${formatPesos(esperado)} · te pagaron ${formatPesos(recibido)}`}</p>
-          {diferencia < 0 && <p className="diferencia-viva__linea">{`Te pagaron ${formatPesos(-diferencia)} menos de lo esperado`}</p>}
-          {diferencia > 0 && <p className="diferencia-viva__linea">{`Te pagaron ${formatPesos(diferencia)} de más`}</p>}
-          {sinTildar.length > 0 && (
+          <p>{recibido === null ? `Esperabas ${pesosJuntos(esperado)}` : `Esperabas ${pesosJuntos(esperado)} · te pagaron ${pesosJuntos(recibido)}`}</p>
+          {diferencia > 0 && <p className="diferencia-viva__linea">{`Te pagaron ${pesosJuntos(diferencia)} de más`}</p>}
+          {faltante > 0 && (
             <p className="diferencia-viva__linea">
-              <strong>{`Falta: ${plural(sinTildar.length, 'trabajo', 'trabajos')}, ${formatPesos(sumaMontos(sinTildar))}`}</strong>
+              <strong>{textoFaltante(sinTildar.length, montoSinTildar, plataSinTrabajo)}</strong>
             </p>
           )}
         </div>
@@ -203,7 +215,7 @@ function Formulario({ lugar, trabajos, pagos, periodo }: { lugar: Lugar; trabajo
       {pregunta && recibido !== null && (
         <ConfirmDialog
           titulo="¿Es todo lo que te van a pagar?"
-          texto={`Esperabas ${formatPesos(esperado)} y te pagaron ${formatPesos(recibido)}${sinTildar.length > 0 ? `; ${plural(sinTildar.length, 'trabajo quedó', 'trabajos quedaron')} sin tildar` : ''}.`}
+          texto={`Esperabas ${pesosJuntos(esperado)} y te pagaron ${pesosJuntos(recibido)}${sinTildar.length > 0 ? `; ${plural(sinTildar.length, 'trabajo quedó', 'trabajos quedaron')} sin tildar` : ''}.`}
           cancelar="Volver"
           onCancel={() => setPregunta(false)}
           alternativa={{ texto: 'Es un pago a cuenta, falta el resto', onClick: () => void guardar('A_CUENTA') }}

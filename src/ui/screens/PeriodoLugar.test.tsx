@@ -102,6 +102,21 @@ describe('período del lugar', () => {
     expect(screen.getAllByRole('button', { name: 'Ya me lo pagaron' })).toHaveLength(1)
   })
 
+  test('muestra la nota del trabajo debajo de "fecha · descripción" solo si tiene', async () => {
+    const lugarId = await lugarFijo()
+    await anotar(lugarId, '2026-10-27', 'Arreglo', 38000, 'Paciente Gómez')
+    await anotar(lugarId, '2026-10-24', 'Extracción', 30000)
+    renderEn(`/lugares/${lugarId}`)
+
+    const lista = await screen.findByRole('list', { name: 'Trabajos del período' })
+    const [conNota, sinNota] = within(lista).getAllByRole('listitem')
+    const nota = within(conNota).getByText('Paciente Gómez')
+    expect(nota).toBeInTheDocument()
+    expect(nota).toHaveClass('nota-trabajo')
+    expect(conNota).toHaveTextContent('27 oct · Arreglo')
+    expect(sinNota.querySelector('.nota-trabajo')).toBeNull()
+  })
+
   test('el parámetro ?periodo elige el período mostrado', async () => {
     const lugarId = await lugarFijo()
     await octubre(lugarId)

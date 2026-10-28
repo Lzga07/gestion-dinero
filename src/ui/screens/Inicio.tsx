@@ -7,7 +7,6 @@ import { noMePagaron } from '../../data/pagos'
 import { calcularAvisos, type Aviso } from '../../domain/avisos'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { formatFechaCorta, mesClave, nombreMes, type FechaISO } from '../../domain/dates'
-import { formatPesos } from '../../domain/money'
 import { nombrePeriodo, periodoQueContiene, type Periodo } from '../../domain/periodos'
 import { resumenMes } from '../../domain/totales'
 import type { Lugar, Movimiento, Pago, Trabajo } from '../../domain/types'
@@ -16,6 +15,7 @@ import Card from '../components/Card'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useHoy } from '../hooks/useHoy'
 import { plural } from './periodo/utils'
+import { pesosJuntos } from '../pesos'
 
 interface Datos {
   lugares: Lugar[]
@@ -96,10 +96,10 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
       {(!sinLugares || hayDatos) && (
         <header className="mes">
           <p className="mes__titulo">{`${nombreMes(hoy)} ${hoy.slice(0, 4)} · hasta hoy`}</p>
-          <p className={`mes__saldo${mes.saldo < 0 ? ' texto-neg' : ''}`}>{formatPesos(mes.saldo)}</p>
+          <p className={`mes__saldo${mes.saldo < 0 ? ' texto-neg' : ''}`}>{pesosJuntos(mes.saldo)}</p>
           <div className="mes__detalle">
-            <span>{`Ganado ${formatPesos(mes.ganado)}`}</span>
-            <span>{`Gastos ${formatPesos(mes.gastos)}`}</span>
+            <span>{`Ganado ${pesosJuntos(mes.ganado)}`}</span>
+            <span>{`Gastos ${pesosJuntos(mes.gastos)}`}</span>
           </div>
         </header>
       )}
@@ -154,7 +154,7 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
                   </span>
                   <span className="lugar-card__fila">
                     <span className="lugar-card__trabajos">{plural(r.cantidad, 'trabajo', 'trabajos')}</span>
-                    <span className="lugar-card__total">{formatPesos(r.teCorresponde)}</span>
+                    <span className="lugar-card__total">{pesosJuntos(r.teCorresponde)}</span>
                   </span>
                 </Link>
               )

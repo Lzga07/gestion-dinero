@@ -6,7 +6,7 @@ import { db } from '../../data/db'
 import { marcarNoPagado, yaMeLoPagaron } from '../../data/pagos'
 import { borrarTrabajo, guardarTrabajo } from '../../data/trabajos'
 import { hoy } from '../../domain/dates'
-import { formatPesos, formatPorcentaje, type Centavos } from '../../domain/money'
+import { formatPorcentaje, type Centavos } from '../../domain/money'
 import {
   calcularTrabajo,
   type EntradaTrabajo,
@@ -21,6 +21,7 @@ import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
 import MoneyInput, { ERROR_MONTO } from '../components/MoneyInput'
 import useVolver from '../components/useVolver'
+import { pesosJuntos } from '../pesos'
 
 const AVISO_EN_PAGO = 'Este trabajo ya está en un pago: cambiarlo modifica la conciliación de ese período'
 
@@ -294,7 +295,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
         </Card>
       )}
 
-      <form ref={formRef} onSubmit={guardar} noValidate>
+      <form ref={formRef} className="form--con-barra" onSubmit={guardar} noValidate>
         <Card>
           <Field label="Lugar">
             {(control) => (
@@ -387,7 +388,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
                         onChange={() => elegirTipo(t.id)}
                       />
                       <span className="chip__text">
-                        {t.nombre} <small>{formatPesos(t.precio)}</small>
+                        {t.nombre} <small>{pesosJuntos(t.precio)}</small>
                       </span>
                     </label>
                   ))}
@@ -448,19 +449,6 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
               />
             )}
           </Field>
-
-          <div className="resultado">
-            {res.ok && res.detalle && <p className="resultado__detalle">{res.detalle}</p>}
-            <div className="resultado__fila">
-              <span className="resultado__etiqueta">Te corresponde</span>
-              <strong className="resultado__monto">{res.ok ? formatPesos(res.monto) : '—'}</strong>
-            </div>
-            {errPorcentaje && (
-              <p className="field__error" role="alert">
-                {errPorcentaje}
-              </p>
-            )}
-          </div>
         </Card>
 
         {errorGeneral && (
@@ -469,9 +457,24 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
           </p>
         )}
 
-        <Button type="submit" block disabled={guardando} className="form__guardar form__guardar--fijo">
-          Guardar
-        </Button>
+        {/* "Te corresponde" y Guardar quedan fijos abajo, a la vista mientras se tipean los montos. */}
+        <div className="form__barra">
+          <div className="resultado">
+            {res.ok && res.detalle && <p className="resultado__detalle">{res.detalle}</p>}
+            <div className="resultado__fila">
+              <span className="resultado__etiqueta">Te corresponde</span>
+              <strong className="resultado__monto">{res.ok ? pesosJuntos(res.monto) : '—'}</strong>
+            </div>
+            {errPorcentaje && (
+              <p className="field__error" role="alert">
+                {errPorcentaje}
+              </p>
+            )}
+          </div>
+          <Button type="submit" block disabled={guardando} className="form__guardar">
+            Guardar
+          </Button>
+        </div>
 
         {trabajo && (
           <div className="zona-lugar">

@@ -64,7 +64,7 @@ describe('registrar pago', () => {
       expect(await db.trabajos.get(id)).toMatchObject({ estado: 'PAGADO', pagoId: pagos[0].id })
   })
 
-  test('destildar uno muestra "Falta: 1 trabajo, $ 45.000" y pregunta', async () => {
+  test('destildar uno muestra "En total falta $ 45.000: 1 trabajo" y pregunta', async () => {
     const { t, user } = await abrirPagoDeSeptiembre()
     await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '93.000')
     await user.click(screen.getByRole('checkbox', { name: /Corona/ }))
@@ -72,7 +72,7 @@ describe('registrar pago', () => {
     // lo esperado es todo el período, tildado o no; la Corona destildada aparece en "Falta"
     expect(screen.getByText('Esperabas $ 138.000 · te pagaron $ 93.000')).toBeInTheDocument()
     expect(screen.queryByText(/de más|menos de lo esperado/)).not.toBeInTheDocument()
-    expect(screen.getByText('Falta: 1 trabajo, $ 45.000')).toBeInTheDocument()
+    expect(screen.getByText('En total falta $ 45.000: 1 trabajo')).toBeInTheDocument()
 
     await user.click(guardarPago())
     const dialogo = await screen.findByRole('dialog')
@@ -142,7 +142,7 @@ describe('registrar pago', () => {
     test('recibir menos que el saldo pregunta si es a cuenta o final', async () => {
       const user = await septiembreConACuenta()
       await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '5.000')
-      expect(screen.getByText('Te pagaron $ 3.000 menos de lo esperado')).toBeInTheDocument()
+      expect(screen.getByText('En total falta $ 3.000 de diferencia')).toBeInTheDocument()
       await user.click(guardarPago())
       expect(await screen.findByRole('dialog')).toBeInTheDocument()
       expect(await db.pagos.count()).toBe(1)
@@ -152,10 +152,69 @@ describe('registrar pago', () => {
   test('recibir menos de lo esperado también pregunta, aunque estén todos tildados', async () => {
     const { user } = await abrirPagoDeSeptiembre()
     await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '130.000')
-    expect(screen.getByText('Te pagaron $ 8.000 menos de lo esperado')).toBeInTheDocument()
+    expect(screen.getByText('En total falta $ 8.000 de diferencia')).toBeInTheDocument()
+    expect(screen.queryByText(/menos de lo esperado/)).not.toBeInTheDocument()
     await user.click(guardarPago())
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(await db.pagos.count()).toBe(0)
+  })
+
+  describe('una sola línea de faltante', () => {
+    test('trabajo destildado y diferencia en plata: un solo resumen con el desglose', async () => {
+      const { user } = await abrirPagoDeSeptiembre()
+      await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '100.000')
+      await user.click(screen.getByRole('checkbox', { name: /Extracción/ }))
+
+      // tildado $ 108.000, recibió $ 100.000 (8.000 menos) y Extracción ($ 30.000) quedó sin tildar
+      expect(screen.getByText('En total falta $ 38.000: 1 trabajo ($ 30.000) y $ 8.000 de diferencia')).toBeInTheDocument()
+      expect(screen.queryByText(/menos de lo esperado/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/^Falta:/)).not.toBeInTheDocument()
+      expect(screen.getByText('Esperabas $ 138.000 · te pagaron $ 100.000')).toBeInTheDocument()
+    })
+
+    test('solo trabajos destildados: se nombra solo el trabajo', async () => {
+      const { user } = await abrirPagoDeSeptiembre()
+      await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '108.000')
+      await user.click(screen.getByRole('checkbox', { name: /Extracción/ }))
+      expect(screen.getByText('En total falta $ 30.000: 1 trabajo')).toBeInTheDocument()
+    })
+
+    test('varios trabajos destildados usan el plural', async () => {
+      const { user } = await abrirPagoDeSeptiembre()
+      await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '63.000')
+      await user.click(screen.getByRole('checkbox', { name: /Extracción/ }))
+      await user.click(screen.getByRole('checkbox', { name: /Corona/ }))
+      expect(screen.getByText('En total falta $ 75.000: 2 trabajos')).toBeInTheDocument()
+    })
+
+    test('solo diferencia en plata: se nombra solo la diferencia', async () => {
+      const { user } = await abrirPagoDeSeptiembre()
+      await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '130.000')
+      expect(screen.getByText('En total falta $ 8.000 de diferencia')).toBeInTheDocument()
+    })
+
+    test('si te pagaron de más se mantiene esa línea y no hay faltante', async () => {
+      const { user } = await abrirPagoDeSeptiembre()
+      await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '140.000')
+      expect(screen.getByText('Te pagaron $ 2.000 de más')).toBeInTheDocument()
+      expect(screen.queryByText(/En total falta/)).not.toBeInTheDocument()
+    })
+
+    test('sin faltante no aparece la línea', async () => {
+      const { user } = await abrirPagoDeSeptiembre()
+      await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '138.000')
+      expect(screen.queryByText(/En total falta/)).not.toBeInTheDocument()
+    })
+  })
+
+  test('la nota de cada trabajo se ve en la lista para reconocerlo', async () => {
+    const lugarId = await lugarFijo()
+    await anotar(lugarId, '2026-09-26', 'Corona', 45000, 'Paciente Gómez')
+    await anotar(lugarId, '2026-09-22', 'Extracción', 30000)
+    renderEn(`/lugares/${lugarId}/pago?periodo=2026-09-30`)
+    const caja = await screen.findByRole('checkbox', { name: /Corona/ })
+    expect(within(caja.closest('li') as HTMLElement).getByText('Paciente Gómez')).toBeInTheDocument()
+    expect(screen.getAllByText(/Paciente Gómez/)).toHaveLength(1)
   })
 
   test('trabajo atrasado de agosto aparece destildado en "De períodos anteriores"', async () => {

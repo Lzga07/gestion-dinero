@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { borrarPago, saldarDiferencia, yaMeLoPagaron } from '../../data/pagos'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { formatFechaCorta, hoy, type FechaISO } from '../../domain/dates'
-import { formatPesos, type Centavos } from '../../domain/money'
+import type { Centavos } from '../../domain/money'
 import type { Lugar, Pago, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
@@ -12,6 +12,7 @@ import DialogoYaPagaron from '../components/DialogoYaPagaron'
 import ResumenCard from './periodo/ResumenCard'
 import SelectorPeriodo from './periodo/SelectorPeriodo'
 import { etiquetaTrabajo, finDe, ordenarTrabajos, periodoPedido, useDatosLugar } from './periodo/utils'
+import { pesosJuntos } from '../pesos'
 
 type Dialogo =
   | { tipo: 'cobro-trabajo'; trabajo: Trabajo }
@@ -115,10 +116,11 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
                     </>
                   )}
                 </span>
-                <span className="trabajo__nombre" id={`trabajo-${tr.id}`}>
-                  {etiquetaTrabajo(tr)}
+                <span className="trabajo__nombre">
+                  <span id={`trabajo-${tr.id}`}>{etiquetaTrabajo(tr)}</span>
+                  {tr.nota && <small className="nota-trabajo">{tr.nota}</small>}
                 </span>
-                <span className={tr.estado === 'NO_PAGADO' ? 'texto-neg' : undefined}>{formatPesos(tr.monto)}</span>
+                <span className={tr.estado === 'NO_PAGADO' ? 'texto-neg' : undefined}>{pesosJuntos(tr.monto)}</span>
               </Link>
               {tr.estado === 'NO_PAGADO' && (
                 <Button
@@ -138,7 +140,7 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
       {resumen.deudaPlata > 0 && (
         <Card className="diferencia">
           <div className="diferencia__fila">
-            <p className="diferencia__texto">{`Diferencia en pago: ${formatPesos(resumen.deudaPlata)}`}</p>
+            <p className="diferencia__texto">{`Diferencia en pago: ${pesosJuntos(resumen.deudaPlata)}`}</p>
             <Button variante="texto" onClick={() => setDialogo({ tipo: 'cobro-diferencia', monto: resumen.deudaPlata })}>
               Ya me lo pagaron
             </Button>
@@ -153,7 +155,7 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
             {pagosDelPeriodo.map((p) => (
               <li key={p.id} className="pago">
                 <span className="pago__datos">{`${formatFechaCorta(p.fecha)} · ${p.tipo === 'FINAL' ? 'final' : 'a cuenta'}`}</span>
-                <strong className="texto-ok">{formatPesos(p.monto)}</strong>
+                <strong className="texto-ok">{pesosJuntos(p.monto)}</strong>
                 <Button
                   variante="texto"
                   className="texto-neg"

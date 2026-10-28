@@ -1,5 +1,5 @@
-import { formatPesos } from '../../../domain/money'
 import type { Trabajo } from '../../../domain/types'
+import { pesosJuntos } from '../../pesos'
 import { etiquetaTrabajo } from './utils'
 
 interface ListaTildableProps {
@@ -26,8 +26,9 @@ export default function ListaTildable({ trabajos, tildados, onCambiar }: ListaTi
               <span className="tilde__nombre">
                 {etiquetaTrabajo(tr)}
                 {tr.estado === 'NO_PAGADO' && <small className="tilde__estado"> · sin pagar</small>}
+                {tr.nota && <small className="nota-trabajo">{tr.nota}</small>}
               </span>
-              <span className="tilde__monto">{formatPesos(tr.monto)}</span>
+              <span className="tilde__monto">{pesosJuntos(tr.monto)}</span>
             </label>
           </li>
         )
