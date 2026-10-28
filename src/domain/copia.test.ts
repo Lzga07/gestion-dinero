@@ -71,13 +71,14 @@ describe('armarCopia / leerCopia', () => {
 
   test('la copia no incluye el PIN', () => {
     const datos = datosBase();
-    datos.ajustes.push({ clave: 'pinHash', valor: 'abc' }, { clave: 'pinSalt', valor: 'def' });
+    datos.ajustes.push({ clave: 'pinHash', valor: 'abc' }, { clave: 'pinSalt', valor: 'def' }, { clave: 'pinOfrecido', valor: true });
     const copia = armarCopia(datos, AHORA);
     expect(copia.datos.ajustes.map(a => a.clave)).toEqual(['recordatorioCopiaDias', 'ultimaCopia']);
     const texto = JSON.stringify(copia);
     expect(texto).not.toContain('pinHash');
     expect(texto).not.toContain('pinSalt');
-    expect(datos.ajustes).toHaveLength(4); // no muta la entrada
+    expect(texto).not.toContain('pinOfrecido');
+    expect(datos.ajustes).toHaveLength(5); // no muta la entrada
   });
 
   test.each([

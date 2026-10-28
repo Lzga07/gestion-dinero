@@ -4,6 +4,11 @@ import { pedirPersistencia } from '../platform/persistencia'
 import BannerInstalar from './components/BannerInstalar'
 import BottomNav from './components/BottomNav'
 import Categorias from './screens/Categorias'
+import { useBloqueo } from './hooks/useBloqueo'
+import Bloqueo from './screens/Bloqueo'
+import ConfigPin from './screens/ConfigPin'
+import ErrorApertura from './screens/bloqueo/ErrorApertura'
+import OfertaPin from './screens/bloqueo/OfertaPin'
 import Copia from './screens/Copia'
 import ConfigLugar from './screens/ConfigLugar'
 import Estadisticas from './screens/Estadisticas'
@@ -23,32 +28,46 @@ export default function App() {
     pedirPersistencia().catch((e: unknown) => console.warn('No se pudo pedir almacenamiento persistente', e))
   }, [])
 
+  const bloqueo = useBloqueo()
+  // Al volver a bloquear, la app queda montada (un formulario a medio llenar no se pierde) pero tapada e inerte.
+  const tapada = bloqueo.fase !== 'abierta'
+
   return (
-    <HashRouter>
-      <div className="app-shell">
-        <BannerInstalar />
-        <main className="app-content">
-          <Routes>
-            <Route path="/" element={<Inicio />} />
-            <Route path="/movimientos" element={<Movimientos />} />
-            <Route path="/movimiento/nuevo" element={<FormMovimiento />} />
-            <Route path="/movimiento/:id" element={<FormMovimiento />} />
-            <Route path="/lugares" element={<Lugares />} />
-            <Route path="/lugares/nuevo" element={<ConfigLugar />} />
-            <Route path="/lugares/:id" element={<PeriodoLugar />} />
-            <Route path="/lugares/:id/config" element={<ConfigLugar />} />
-            <Route path="/lugares/:id/pago" element={<RegistrarPago />} />
-            <Route path="/trabajo/nuevo" element={<FormTrabajo />} />
-            <Route path="/trabajo/:id" element={<FormTrabajo />} />
-            <Route path="/estadisticas" element={<Estadisticas />} />
-            <Route path="/mas" element={<Mas />} />
-            <Route path="/mas/categorias" element={<Categorias />} />
-            <Route path="/mas/copia" element={<Copia />} />
-            <Route path="/mas/instalar" element={<Instalar />} />
-          </Routes>
-        </main>
-        <BottomNav />
-      </div>
-    </HashRouter>
+    <>
+      {bloqueo.appMontada && (
+        <div inert={tapada} aria-hidden={tapada || undefined}>
+          <HashRouter>
+            <div className="app-shell">
+              <BannerInstalar />
+              <main className="app-content">
+                <Routes>
+                  <Route path="/" element={<Inicio />} />
+                  <Route path="/movimientos" element={<Movimientos />} />
+                  <Route path="/movimiento/nuevo" element={<FormMovimiento />} />
+                  <Route path="/movimiento/:id" element={<FormMovimiento />} />
+                  <Route path="/lugares" element={<Lugares />} />
+                  <Route path="/lugares/nuevo" element={<ConfigLugar />} />
+                  <Route path="/lugares/:id" element={<PeriodoLugar />} />
+                  <Route path="/lugares/:id/config" element={<ConfigLugar />} />
+                  <Route path="/lugares/:id/pago" element={<RegistrarPago />} />
+                  <Route path="/trabajo/nuevo" element={<FormTrabajo />} />
+                  <Route path="/trabajo/:id" element={<FormTrabajo />} />
+                  <Route path="/estadisticas" element={<Estadisticas />} />
+                  <Route path="/mas" element={<Mas />} />
+                  <Route path="/mas/categorias" element={<Categorias />} />
+                  <Route path="/mas/copia" element={<Copia />} />
+                  <Route path="/mas/instalar" element={<Instalar />} />
+                  <Route path="/mas/pin" element={<ConfigPin />} />
+                </Routes>
+              </main>
+              <BottomNav />
+            </div>
+            <OfertaPin />
+          </HashRouter>
+        </div>
+      )}
+      {bloqueo.fase === 'bloqueada' && <Bloqueo onDesbloquear={bloqueo.desbloquear} />}
+      {bloqueo.fase === 'error' && <ErrorApertura onReintentar={bloqueo.reintentar} />}
+    </>
   )
 }

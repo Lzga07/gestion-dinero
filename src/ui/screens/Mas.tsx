@@ -1,4 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { tienePin } from '../../data/pin'
 import { db } from '../../data/db'
 import type { Lugar } from '../../domain/types'
 import Card from '../components/Card'
@@ -9,11 +12,27 @@ import { plural } from './periodo/utils'
 
 const porNombre = (a: Lugar, b: Lugar) => a.nombre.localeCompare(b.nombre, 'es')
 
+/**
+ * El aviso que dejó la pantalla anterior al volver acá (p. ej. "PIN creado"). Se lee una vez y se saca del
+ * historial, para que no reaparezca al recargar.
+ */
+function useAvisoDeNavegacion(): string | null {
+  const { state, pathname } = useLocation()
+  const navigate = useNavigate()
+  const [aviso] = useState<string | null>(() => (state as { aviso?: string } | null)?.aviso ?? null)
+  useEffect(() => {
+    if (state) navigate(pathname, { replace: true, state: null })
+  }, [state, pathname, navigate])
+  return aviso
+}
+
 /** Más: copia de seguridad, categorías, PIN, lugares archivados, recordatorios del calendario e instalación. */
 export default function Mas() {
   const hoy = useHoy()
   const lugares = useLiveQuery(() => db.lugares.toArray(), [])
-  if (lugares === undefined) return null // cargando
+  const conPin = useLiveQuery(() => tienePin(), [])
+  const aviso = useAvisoDeNavegacion()
+  if (lugares === undefined || conPin === undefined) return null // cargando
 
   const activos = lugares.filter((l) => !l.archivado).sort(porNombre)
   const archivados = lugares.filter((l) => l.archivado).length
@@ -21,6 +40,11 @@ export default function Mas() {
   return (
     <section>
       <h1 className="screen-title">Más</h1>
+      {aviso && (
+        <p className="aviso-confirmacion" role="status">
+          {aviso}
+        </p>
+      )}
       <Card flush as="ul" className="lista">
         <li>
           <FilaMas nombre="Copia de seguridad" detalle="Guardá tus datos fuera del celular" to="/mas/copia" />
@@ -29,7 +53,7 @@ export default function Mas() {
           <FilaMas nombre="Categorías" detalle="Gastos e ingresos" to="/mas/categorias" />
         </li>
         <li>
-          <FilaMas nombre="PIN" detalle="Disponible pronto" />
+          <FilaMas nombre="PIN" detalle={conPin ? 'Activado' : 'Desactivado'} to="/mas/pin" />
         </li>
         <li>
           <FilaMas

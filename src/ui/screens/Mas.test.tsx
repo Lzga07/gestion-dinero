@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { archivarLugar } from '../../data/lugares'
+import { crearPin } from '../../data/pin'
 import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import { compartirArchivo, type ResultadoCompartir } from '../../platform/compartir'
 import { leerTextoArchivo } from '../../platform/archivos'
@@ -38,11 +39,17 @@ describe('lista', () => {
     expect(screen.getByRole('link', { name: /Cómo instalar la app/ })).toHaveAttribute('href', '/mas/instalar')
   })
 
-  test('el PIN se ve pero todavía no se puede abrir, y lo dice para lectores de pantalla', async () => {
+  test('el PIN lleva a su pantalla y dice si está desactivado', async () => {
     renderMas()
-    const pin = await screen.findByRole('button', { name: /PIN/ })
-    expect(pin).toBeDisabled()
-    expect(pin).toHaveAccessibleDescription('Disponible pronto')
+    const pin = await screen.findByRole('link', { name: /PIN/ })
+    expect(pin).toHaveAttribute('href', '/mas/pin')
+    expect(pin).toHaveAccessibleDescription('Desactivado')
+  })
+
+  test('con PIN puesto el detalle dice "Activado"', async () => {
+    await crearPin('1234')
+    renderMas()
+    expect(await screen.findByRole('link', { name: /PIN/ })).toHaveAccessibleDescription('Activado')
   })
 
   test('Lugares archivados lleva a Lugares con los archivados abiertos', async () => {

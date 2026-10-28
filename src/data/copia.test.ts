@@ -108,6 +108,27 @@ test('restaurarDatos descarta un pinHash que viene dentro del archivo', async ()
   expect(await leerAjuste('pinSalt', null)).toBeNull();
 });
 
+test('pinOfrecido es del dispositivo: no viaja en la copia y la restauración conserva el de este celular', async () => {
+  const copia = await llenarYCopiar();
+  const conOfertaAjena: Copia = {
+    ...copia,
+    datos: { ...copia.datos, ajustes: [...copia.datos.ajustes, { clave: 'pinOfrecido', valor: true }] },
+  };
+
+  await guardarAjuste('pinOfrecido', true);
+  expect(JSON.stringify(armarCopia(await exportarDatos(), new Date()))).not.toContain('pinOfrecido');
+
+  // Dispositivo que todavía no ofreció el PIN: el valor del archivo no cuenta.
+  await db.ajustes.delete('pinOfrecido');
+  await restaurarDatos(conOfertaAjena);
+  expect(await leerAjuste('pinOfrecido', false)).toBe(false);
+
+  // Dispositivo que ya lo ofreció: se conserva.
+  await guardarAjuste('pinOfrecido', true);
+  await restaurarDatos(copia);
+  expect(await leerAjuste('pinOfrecido', false)).toBe(true);
+});
+
 test('restaurarDatos con error a mitad no toca los datos existentes', async () => {
   const copia = await llenarYCopiar();
   await reiniciarDb();

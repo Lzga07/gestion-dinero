@@ -13,15 +13,18 @@ export interface Copia { app: 'gestion-dinero'; version: number; creadoEn: strin
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const MIGRACIONES: Record<number, (c: any) => any> = {};
 
-/** Ajustes que nunca viajan en la copia (el PIN se configura de nuevo en cada dispositivo). */
-const AJUSTES_EXCLUIDOS = ['pinHash', 'pinSalt'];
+/**
+ * Ajustes propios de cada dispositivo: nunca viajan en la copia y la restauración conserva los de este
+ * dispositivo (el PIN se configura de nuevo en cada uno, y la oferta de crearlo se hace una vez por celular).
+ */
+export const AJUSTES_DEL_DISPOSITIVO = ['pinHash', 'pinSalt', 'pinOfrecido'];
 
 export function armarCopia(datos: Datos, ahora: Date): Copia {
   return {
     app: 'gestion-dinero',
     version: VERSION_COPIA,
     creadoEn: ahora.toISOString(),
-    datos: { ...datos, ajustes: datos.ajustes.filter(a => !AJUSTES_EXCLUIDOS.includes(a.clave)) },
+    datos: { ...datos, ajustes: datos.ajustes.filter(a => !AJUSTES_DEL_DISPOSITIVO.includes(a.clave)) },
   };
 }
 

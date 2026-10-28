@@ -1,10 +1,7 @@
-import type { Copia, Datos } from '../domain/copia';
+import { AJUSTES_DEL_DISPOSITIVO, type Copia, type Datos } from '../domain/copia';
 import { db } from './db';
 
 export { ErrorDatos } from './errores';
-
-/** Ajustes propios de cada dispositivo: la restauración los conserva y nunca los toma del archivo. */
-const AJUSTES_DEL_DISPOSITIVO = ['pinHash', 'pinSalt'];
 
 export async function exportarDatos(): Promise<Datos> {
   return db.transaction('r', db.tables, async () => ({
@@ -20,7 +17,7 @@ export async function exportarDatos(): Promise<Datos> {
 
 /**
  * Reemplaza todos los datos por los de la copia, en una sola transacción: si algo falla, Dexie la aborta y
- * los datos actuales quedan intactos. El PIN del dispositivo se conserva y el que venga en el archivo se descarta.
+ * los datos actuales quedan intactos. Los ajustes del dispositivo (PIN, oferta del PIN) se conservan y los que vengan en el archivo se descartan.
  * La copia ya debe venir validada con `leerCopia`.
  */
 export async function restaurarDatos(c: Copia): Promise<void> {
