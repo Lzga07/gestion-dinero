@@ -57,7 +57,7 @@ function contenido(aviso: Aviso, lugar: Lugar | undefined, onNoMePagaron: AvisoC
       nivel: 'alerta',
       titulo: `${lugar.nombre}: sin pago registrado`,
       lineas: [
-        `Te pagan entre el ${lugar.pagoDesdeDia} y el ${lugar.pagoHastaDia}. ${nombrePeriodo(aviso.periodo)}: ${pesosJuntos(aviso.monto)}.`,
+        `${nombrePeriodo(aviso.periodo)} · ${pesosJuntos(aviso.monto)} · te pagan del ${lugar.pagoDesdeDia} al ${lugar.pagoHastaDia}`,
       ],
       acciones: (
         <>

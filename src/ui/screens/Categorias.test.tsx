@@ -26,6 +26,17 @@ beforeEach(reiniciarDb)
 const gasto = (nombre: string, ambito: 'TRABAJO' | 'PERSONAL', orden: number) =>
   guardarCategoria({ nombre, tipo: 'GASTO', ambito, icono: '📦', color: '', orden })
 
+describe('lista', () => {
+  test('cada fila lleva una flecha decorativa que no cambia su nombre accesible', async () => {
+    await gasto('Materiales', 'TRABAJO', 0)
+    renderCategorias()
+    const fila = await screen.findByRole('button', { name: 'Materiales' })
+    const flecha = fila.querySelector('.mov-fila__flecha')
+    expect(flecha).toHaveTextContent('›')
+    expect(flecha).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
 describe('crear y editar', () => {
   test('crea una categoría de gasto personal', async () => {
     const user = renderCategorias()

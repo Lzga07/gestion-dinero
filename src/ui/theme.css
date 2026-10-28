@@ -494,6 +494,18 @@ select.input {
   gap: 8px;
 }
 
+/* Hoja inferior: el diálogo pegado abajo, de ancho completo (hasta el ancho de la app) */
+.dialog-backdrop--hoja {
+  align-items: flex-end;
+  padding: 0;
+}
+
+.dialog--hoja {
+  max-width: 480px;
+  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
 /* Anotar y editar un trabajo */
 button.screen-header__back {
   padding: 0;
@@ -979,6 +991,9 @@ a.screen-header__back {
   --aviso-borde: #a8641c;
   --aviso-titulo: #7a4a14;
   --aviso-texto: #5a3a12;
+  /* Borde fino de cada tarjeta de aviso: un tono del mismo color que el fondo */
+  --alerta-borde: color-mix(in srgb, var(--neg) 35%, var(--alerta-bg));
+  --aviso-borde-fino: color-mix(in srgb, var(--aviso-borde) 35%, var(--aviso-bg));
   --pill-bg: #e6f0ed;
 }
 
@@ -1027,7 +1042,7 @@ a.screen-header__back {
 
 .aviso-card {
   padding: 12px 14px;
-  border-left: 4px solid var(--neg);
+  border: 1px solid var(--alerta-borde);
   border-radius: 12px;
   background: var(--alerta-bg);
   color: var(--alerta-texto);
@@ -1035,7 +1050,7 @@ a.screen-header__back {
 }
 
 .aviso-card--aviso {
-  border-left-color: var(--aviso-borde);
+  border-color: var(--aviso-borde-fino);
   background: var(--aviso-bg);
   color: var(--aviso-texto);
 }
@@ -1232,20 +1247,31 @@ li + li > .mov-fila {
   overflow-wrap: anywhere;
 }
 
-.mov-fila__monto {
-  flex: none;
-  font-weight: 600;
+/* Segundo renglón (lugar, o "trabajo · nota"): chico, gris y en una sola línea */
+.mov-fila__detalle {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.etiqueta {
-  margin-left: 6px;
-  padding: 1px 7px;
-  border-radius: 6px;
-  background: var(--seg-bg);
-  color: var(--muted);
-  font-size: 0.75rem;
+.mov-fila__monto {
+  flex: none;
+  align-self: center;
+  font-weight: 600;
+  text-align: right;
   white-space: nowrap;
+}
+
+/* "›" que indica que la fila se toca para editar */
+.mov-fila__flecha {
+  flex: none;
+  margin-right: -4px;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .menu-nuevo {

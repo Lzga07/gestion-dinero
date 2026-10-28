@@ -53,27 +53,44 @@ describe('lista', () => {
 
     const hoy = await screen.findByRole('region', { name: 'Hoy' })
     expect(within(hoy).getAllByRole('link')).toHaveLength(3)
-    // Trabajo: "Descripción · Lugar", con + (te corresponde)
-    const trabajo = within(hoy).getByRole('link', { name: /Arreglo · Clínica Centro/ })
+    // Trabajo: descripción arriba, lugar abajo, con + (te corresponde); el nombre accesible lleva todo
+    const trabajo = within(hoy).getByRole('link', { name: `Arreglo Clínica Centro + ${pesosJuntos(3800000)}` })
+    expect(trabajo.querySelector('.mov-fila__titulo')).toHaveTextContent('Arreglo')
+    expect(trabajo.querySelector('.mov-fila__detalle')).toHaveTextContent('Clínica Centro')
     expect(trabajo.textContent).toContain(`+ ${pesosJuntos(3800000)}`)
     expect(trabajo).toHaveAttribute('href', expect.stringMatching(/^\/trabajo\/.+/))
-    // Gastos: − y etiqueta trabajo / personal
-    const materiales = within(hoy).getByRole('link', { name: /Materiales/ })
-    expect(materiales.textContent).toContain(`− ${pesosJuntos(2200000)}`)
-    expect(materiales).toHaveTextContent('trabajo')
+    // Gastos: − y, en el segundo renglón, "trabajo" / "personal"
+    const materiales = within(hoy).getByRole('link', { name: `Materiales trabajo − ${pesosJuntos(2200000)}` })
+    expect(materiales.querySelector('.mov-fila__titulo')).toHaveTextContent('Materiales')
+    expect(materiales.querySelector('.mov-fila__detalle')).toHaveTextContent(/^trabajo$/)
     expect(materiales).toHaveAttribute('href', expect.stringMatching(/^\/movimiento\/.+/))
     const supermercado = within(hoy).getByRole('link', { name: /Supermercado/ })
     expect(supermercado.textContent).toContain(`− ${pesosJuntos(4150000)}`)
-    expect(supermercado).toHaveTextContent('personal')
+    expect(supermercado.querySelector('.mov-fila__detalle')).toHaveTextContent(/^personal$/)
 
     const ayer = screen.getByRole('region', { name: 'Ayer' })
     const venta = within(ayer).getByRole('link', { name: /Venta usado/ })
     expect(venta.textContent).toContain(`+ ${pesosJuntos(6000000)}`)
-    expect(venta).toHaveTextContent('otro ingreso')
+    expect(venta.querySelector('.mov-fila__detalle')).toHaveTextContent(/^otro ingreso$/)
 
     // Lo de septiembre no está, y Hoy va antes que Ayer.
     expect(screen.queryByRole('link', { name: /Septiembre/ })).not.toBeInTheDocument()
     expect(hoy.compareDocumentPosition(ayer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  test('el segundo renglón de un gasto o ingreso suma la nota después de la etiqueta', async () => {
+    const combustible = await guardarCategoria({ nombre: 'Combustible', tipo: 'GASTO', ambito: 'TRABAJO', icono: '⛽', color: '', orden: 0 })
+    const venta = await guardarCategoria({ nombre: 'Venta usado', tipo: 'INGRESO', ambito: null, icono: '💵', color: '', orden: 1 })
+    await guardarMovimiento({ tipo: 'GASTO', fecha: '2026-10-27', monto: 500000, categoriaId: combustible, nota: 'Nafta ida y vuelta' })
+    await guardarMovimiento({ tipo: 'INGRESO', fecha: '2026-10-27', monto: 700000, categoriaId: venta, nota: 'Monitor' })
+    renderMovimientos()
+
+    const gasto = await screen.findByRole('link', { name: /Combustible/ })
+    expect(gasto.querySelector('.mov-fila__detalle')).toHaveTextContent('trabajo · Nafta ida y vuelta')
+    expect(gasto).toHaveAccessibleName(`Combustible trabajo · Nafta ida y vuelta − ${pesosJuntos(500000)}`)
+    expect(screen.getByRole('link', { name: /Venta usado/ }).querySelector('.mov-fila__detalle')).toHaveTextContent(
+      'otro ingreso · Monitor',
+    )
   })
 
   test('los días anteriores a ayer se titulan "20 oct"', async () => {
@@ -172,5 +189,57 @@ describe('+ Nuevo', () => {
     await user.click(await screen.findByRole('button', { name: '+ Nuevo' }))
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  test('al abrir el foco va a la primera opción', async () => {
+    const user = renderMovimientos()
+    await user.click(await screen.findByRole('button', { name: '+ Nuevo' }))
+    expect(screen.getByRole('link', { name: 'Trabajo' })).toHaveFocus()
+  })
+
+  test('Tab desde Cancelar vuelve a la primera opción y Shift+Tab desde la primera va a Cancelar', async () => {
+    const user = renderMovimientos()
+    await user.click(await screen.findByRole('button', { name: '+ Nuevo' }))
+
+    await user.tab()
+    expect(screen.getByRole('link', { name: 'Gasto' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('link', { name: 'Otro ingreso' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('link', { name: 'Trabajo' })).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus()
+  })
+
+  test('Escape cierra el menú y devuelve el foco a "+ Nuevo"', async () => {
+    const user = renderMovimientos()
+    const nuevo = await screen.findByRole('button', { name: '+ Nuevo' })
+    await user.click(nuevo)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(nuevo).toHaveFocus()
+  })
+
+  test('tocar el fondo cierra el menú y devuelve el foco a "+ Nuevo"', async () => {
+    const user = renderMovimientos()
+    const nuevo = await screen.findByRole('button', { name: '+ Nuevo' })
+    await user.click(nuevo)
+
+    const fondo = screen.getByRole('dialog').parentElement as HTMLElement
+    await user.pointer({ keys: '[MouseLeft]', target: fondo })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(nuevo).toHaveFocus()
+  })
+
+  test('Cancelar devuelve el foco a "+ Nuevo"', async () => {
+    const user = renderMovimientos()
+    const nuevo = await screen.findByRole('button', { name: '+ Nuevo' })
+    await user.click(nuevo)
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(nuevo).toHaveFocus()
   })
 })

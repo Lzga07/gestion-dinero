@@ -13,10 +13,10 @@ export interface Fila {
   monto: Centavos
   icono: string
   color: string
+  /** Primer renglón: la descripción (trabajos) o el nombre de la categoría. */
   titulo: string
-  /** "trabajo" / "personal" en gastos, "otro ingreso" en ingresos; los trabajos no llevan. */
-  etiqueta: string | null
-  nota: string
+  /** Segundo renglón: el lugar (trabajos), "trabajo" / "personal" + nota (gastos) u "otro ingreso" + nota. Puede ser ''. */
+  detalle: string
   destino: string
   creadoEn: string
 }
@@ -28,6 +28,14 @@ export interface Dia {
 }
 
 const ICONO_TRABAJO = '💼'
+
+/** "otro ingreso" para los ingresos; "trabajo" / "personal" para los gastos según la categoría. */
+function etiquetaMovimiento(m: Movimiento, cat: Categoria | undefined): string {
+  if (m.tipo === 'INGRESO') return 'otro ingreso'
+  if (cat?.ambito === 'TRABAJO') return 'trabajo'
+  if (cat?.ambito === 'PERSONAL') return 'personal'
+  return ''
+}
 
 /** Une trabajos y movimientos del mes `mes` ('YYYY-MM') en filas, ya filtradas. */
 export function construirFilas(
@@ -50,9 +58,8 @@ export function construirFilas(
         monto: t.monto,
         icono: ICONO_TRABAJO,
         color: '',
-        titulo: lugar ? `${t.descripcion} · ${lugar.nombre}` : t.descripcion,
-        etiqueta: null,
-        nota: t.nota,
+        titulo: t.descripcion,
+        detalle: lugar?.nombre ?? '',
         destino: `/trabajo/${t.id}`,
         creadoEn: t.creadoEn,
       })
@@ -71,8 +78,7 @@ export function construirFilas(
       icono: cat?.icono ?? '',
       color: cat?.color ?? '',
       titulo: cat?.nombre ?? 'Sin categoría',
-      etiqueta: m.tipo === 'INGRESO' ? 'otro ingreso' : cat?.ambito === 'TRABAJO' ? 'trabajo' : cat?.ambito === 'PERSONAL' ? 'personal' : null,
-      nota: m.nota,
+      detalle: [etiquetaMovimiento(m, cat), m.nota].filter(Boolean).join(' · '),
       destino: `/movimiento/${m.id}`,
       creadoEn: m.creadoEn,
     })

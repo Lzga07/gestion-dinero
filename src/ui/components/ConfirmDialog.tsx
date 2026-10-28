@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import Button from './Button'
+import { useDialogoModal } from './useDialogoModal'
 
 interface ConfirmDialogProps {
   titulo: string
@@ -17,8 +18,6 @@ interface ConfirmDialogProps {
   children?: ReactNode
 }
 
-const FOCUSABLES = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-
 /** Diálogo propio (no usa window.confirm): foco atrapado; Escape y tocar el fondo cancelan. */
 export default function ConfirmDialog({
   titulo,
@@ -32,40 +31,10 @@ export default function ConfirmDialog({
   children,
 }: ConfirmDialogProps) {
   const id = useId()
-  const caja = useRef<HTMLDivElement>(null)
-  const cancelRef = useRef<HTMLButtonElement>(null)
-  const confirmRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    const previo = document.activeElement as HTMLElement | null
-    // Lo seguro primero: el foco empieza en "Cancelar" si existe.
-    const inicial = cancelRef.current ?? confirmRef.current
-    inicial?.focus()
-    return () => previo?.focus?.()
-  }, [])
-
-  function alTeclear(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      onCancel()
-      return
-    }
-    if (e.key !== 'Tab' || !caja.current) return
-    const items = Array.from(caja.current.querySelectorAll<HTMLElement>(FOCUSABLES))
-    if (items.length === 0) return
-    const primero = items[0]
-    const ultimo = items[items.length - 1]
-    if (e.shiftKey && document.activeElement === primero) {
-      e.preventDefault()
-      ultimo.focus()
-    } else if (!e.shiftKey && document.activeElement === ultimo) {
-      e.preventDefault()
-      primero.focus()
-    }
-  }
+  const { caja, alTeclear, alTocarFondo } = useDialogoModal(onCancel)
 
   return (
-    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+    <div className="dialog-backdrop" onMouseDown={alTocarFondo}>
       <div
         ref={caja}
         className="dialog"
@@ -84,7 +53,7 @@ export default function ConfirmDialog({
         {children}
         <div className="dialog__actions">
           {cancelar !== null && (
-            <Button ref={cancelRef} variante="secundario" onClick={onCancel}>
+            <Button data-foco-inicial variante="secundario" onClick={onCancel}>
               {cancelar}
             </Button>
           )}
@@ -93,7 +62,11 @@ export default function ConfirmDialog({
               {alternativa.texto}
             </Button>
           )}
-          <Button ref={confirmRef} variante={peligro ? 'peligro' : 'primario'} onClick={onConfirm}>
+          <Button
+            data-foco-inicial={cancelar === null ? true : undefined}
+            variante={peligro ? 'peligro' : 'primario'}
+            onClick={onConfirm}
+          >
             {confirmar}
           </Button>
         </div>

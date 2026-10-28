@@ -63,6 +63,9 @@ export default function Categorias() {
                     <span className="mov-fila__texto">
                       <span className="mov-fila__titulo">{c.nombre}</span>
                     </span>
+                    <span className="mov-fila__flecha" aria-hidden="true">
+                      ›
+                    </span>
                   </button>
                 </li>
               ))}

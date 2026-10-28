@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
+import { useId } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '../../components/Button'
+import { useDialogoModal } from '../../components/useDialogoModal'
 
 const OPCIONES = [
   { texto: 'Trabajo', a: '/trabajo/nuevo' },
@@ -8,33 +9,27 @@ const OPCIONES = [
   { texto: 'Otro ingreso', a: '/movimiento/nuevo?tipo=INGRESO' },
 ]
 
-/** "+ Nuevo": pregunta qué se quiere cargar. Escape y tocar el fondo lo cierran. */
+/** "+ Nuevo": hoja inferior que pregunta qué se quiere cargar. Escape, tocar el fondo o Cancelar la cierran. */
 export default function MenuNuevo({ onCerrar }: { onCerrar: () => void }) {
   const id = useId()
-  const primero = useRef<HTMLAnchorElement>(null)
-
-  useEffect(() => {
-    const previo = document.activeElement as HTMLElement | null
-    primero.current?.focus()
-    return () => previo?.focus?.()
-  }, [])
-
-  function alTeclear(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      onCerrar()
-    }
-  }
+  const { caja, alTeclear, alTocarFondo } = useDialogoModal(onCerrar)
 
   return (
-    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onCerrar()}>
-      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-titulo`} onKeyDown={alTeclear}>
+    <div className="dialog-backdrop dialog-backdrop--hoja" onMouseDown={alTocarFondo}>
+      <div
+        ref={caja}
+        className="dialog dialog--hoja"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${id}-titulo`}
+        onKeyDown={alTeclear}
+      >
         <h2 className="dialog__title" id={`${id}-titulo`}>
           ¿Qué querés cargar?
         </h2>
         <div className="menu-nuevo">
-          {OPCIONES.map((o, i) => (
-            <Link key={o.a} ref={i === 0 ? primero : undefined} className="btn btn--secundario btn--block" to={o.a}>
+          {OPCIONES.map((o) => (
+            <Link key={o.a} className="btn btn--secundario btn--block" to={o.a}>
               {o.texto}
             </Link>
           ))}

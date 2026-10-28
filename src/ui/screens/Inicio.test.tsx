@@ -94,7 +94,7 @@ describe('avisos', () => {
     const user = renderInicio()
 
     expect(await screen.findByText('Clínica Centro: sin pago registrado')).toBeInTheDocument()
-    expect(screen.getByText('Te pagan entre el 21 y el 25. 1 – 30 sep: $ 138.000.')).toBeInTheDocument()
+    expect(screen.getByText('1 – 30 sep · $ 138.000 · te pagan del 21 al 25')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Registrar pago' })).toHaveAttribute(
       'href',
       `/lugares/${lugarId}/pago?periodo=2026-09-30`,

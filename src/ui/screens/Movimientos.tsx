@@ -38,12 +38,15 @@ function FilaMovimiento({ fila }: { fila: Fila }) {
           {fila.icono}
         </span>
         <span className="mov-fila__texto">
-          <span className="mov-fila__titulo">
-            {fila.titulo}
-            {fila.etiqueta && <span className="etiqueta">{fila.etiqueta}</span>}
-          </span>
-          {fila.nota && <span className="nota-trabajo">{fila.nota}</span>}
-        </span>
+          <span className="mov-fila__titulo">{fila.titulo}</span>
+          {/* Los espacios separan renglones y monto en el nombre accesible de la fila (en un flex no se ven). */}
+          {fila.detalle && (
+            <>
+              {' '}
+              <span className="mov-fila__detalle">{fila.detalle}</span>
+            </>
+          )}
+        </span>{' '}
         <span className={`mov-fila__monto ${fila.suma ? 'texto-ok' : 'texto-neg'}`}>
           {`${fila.suma ? '+' : '−'} ${pesosJuntos(fila.monto)}`}
         </span>
