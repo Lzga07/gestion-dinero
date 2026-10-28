@@ -1356,11 +1356,12 @@ li + li > .mov-fila {
 .barras__columnas {
   display: flex;
   gap: 2px;
+  /* Con 12 meses las columnas no bajan de 44 px (objetivo táctil) y la fila se desplaza. */
+  overflow-x: auto;
 }
 
 .barras__col {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 0 44px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1413,7 +1414,6 @@ li + li > .mov-fila {
   font-size: 0.75rem;
   line-height: 1.2;
   text-align: center;
-  overflow: hidden;
 }
 
 .leyenda {

@@ -135,6 +135,7 @@ export default function Estadisticas() {
   if (datos === undefined || grafico === null) return null // cargando
 
   const { barras, leyenda } = grafico
+  const hayGanancias = barras.some((b) => b.total > 0)
   const barraElegida = barras.find((b) => b.clave === mes)
   const anio = mes.slice(0, 4)
   const tituloGastos = `En qué gastás más · ${nombreMes(`${mes}-01`).toLowerCase()}${anio === mesActual.slice(0, 4) ? '' : ` ${anio}`}`
@@ -146,47 +147,46 @@ export default function Estadisticas() {
 
       <Card>
         <h2 className="grafico__titulo">Cuánto ganás por lugar</h2>
-        {barras.some((b) => b.total > 0) ? (
-          <>
-            <BarrasApiladas
-              nombre="Ganancia por mes y por lugar"
-              barras={barras}
-              seleccionada={mes}
-              onSeleccionar={setMesElegido}
-              resumen={resumenDe(barras)}
-              nombreLeyenda="Lugares"
-              leyenda={leyenda}
-            />
-            <section className="desglose" aria-labelledby={idDesglose}>
-              <div className="desglose__cabecera">
-                <h3 className="desglose__titulo" id={idDesglose}>{`${nombreMes(`${mes}-01`)} ${anio}`}</h3>
-                <span className="desglose__total">{pesosJuntos(barraElegida?.total ?? 0)}</span>
-              </div>
-              {barraElegida && barraElegida.segmentos.length > 0 ? (
-                <ul className="desglose__lista">
-                  {[...barraElegida.segmentos]
-                    .sort((a, b) => b.monto - a.monto)
-                    .map((s) => (
-                      <li key={s.clave} className="desglose__fila">
-                        <span className="desglose__nombre">
-                          <span
-                            className="leyenda__muestra"
-                            style={{ ['--color-lugar' as string]: s.color }}
-                            aria-hidden="true"
-                          />
-                          {s.nombre}
-                        </span>
-                        <span className="desglose__monto">{pesosJuntos(s.monto)}</span>
-                      </li>
-                    ))}
-                </ul>
-              ) : (
-                <p className="muted">No hay trabajos en este mes</p>
-              )}
-            </section>
-          </>
+        <BarrasApiladas
+          nombre="Ganancia por mes y por lugar"
+          barras={barras}
+          seleccionada={mes}
+          onSeleccionar={setMesElegido}
+          resumen={resumenDe(barras)}
+          nombreLeyenda="Lugares"
+          leyenda={leyenda}
+        />
+        {hayGanancias ? (
+          <section className="desglose" aria-labelledby={idDesglose}>
+            <div className="desglose__cabecera">
+              <h3 className="desglose__titulo" id={idDesglose}>{`${nombreMes(`${mes}-01`)} ${anio}`}</h3>
+              <span className="desglose__total">{pesosJuntos(barraElegida?.total ?? 0)}</span>
+            </div>
+            {barraElegida && barraElegida.segmentos.length > 0 ? (
+              <ul className="desglose__lista">
+                {[...barraElegida.segmentos]
+                  .sort((a, b) => b.monto - a.monto)
+                  .map((s) => (
+                    <li key={s.clave} className="desglose__fila">
+                      <span className="desglose__nombre">
+                        <span
+                          className="leyenda__muestra"
+                          style={{ ['--color-lugar' as string]: s.color }}
+                          aria-hidden="true"
+                        />
+                        {s.nombre}
+                      </span>
+                      <span className="desglose__monto">{pesosJuntos(s.monto)}</span>
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="muted">No hay trabajos en este mes</p>
+            )}
+          </section>
         ) : (
-          <p className="muted">{SIN_DATOS}</p>
+          // Sin trabajos en el período, las barras quedan igual para poder elegir el mes del ranking de gastos.
+          <p className="muted grafico__vacio">{SIN_DATOS}</p>
         )}
       </Card>
 

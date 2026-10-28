@@ -1,4 +1,4 @@
-import { useId, type CSSProperties } from 'react'
+import { useEffect, useId, useRef, type CSSProperties } from 'react'
 import type { Centavos } from '../../domain/money'
 import { pesosJuntos } from '../pesos'
 
@@ -46,14 +46,22 @@ export default function BarrasApiladas({
   leyenda,
 }: Props) {
   const idResumen = useId()
+  const columnas = useRef<HTMLDivElement>(null)
+  // Cuando las columnas no entran (12 meses en un celular) se desplaza hasta el final: lo más reciente queda a la vista.
+  useEffect(() => {
+    const el = columnas.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [barras.length])
   const maximo = Math.max(...barras.map((b) => b.total), 0)
   return (
     <div>
       <div className="barras">
-        <div className="barras__tope" aria-hidden="true">
-          {pesosJuntos(maximo)}
-        </div>
-        <div className="barras__columnas" role="group" aria-label={nombre} aria-describedby={idResumen}>
+        {maximo > 0 && (
+          <div className="barras__tope" aria-hidden="true">
+            {pesosJuntos(maximo)}
+          </div>
+        )}
+        <div ref={columnas} className="barras__columnas" role="group" aria-label={nombre} aria-describedby={idResumen}>
           {barras.map((b) => (
             <button
               key={b.clave}
@@ -87,14 +95,16 @@ export default function BarrasApiladas({
       <p id={idResumen} className="sr-only">
         {resumen}
       </p>
-      <ul className="leyenda" aria-label={nombreLeyenda}>
-        {leyenda.map((l) => (
-          <li key={l.clave}>
-            <span className="leyenda__muestra" data-lugar={l.nombre} style={colorDe(l.color)} aria-hidden="true" />
-            {l.nombre}
-          </li>
-        ))}
-      </ul>
+      {leyenda.length > 0 && (
+        <ul className="leyenda" aria-label={nombreLeyenda}>
+          {leyenda.map((l) => (
+            <li key={l.clave}>
+              <span className="leyenda__muestra" data-lugar={l.nombre} style={colorDe(l.color)} aria-hidden="true" />
+              {l.nombre}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

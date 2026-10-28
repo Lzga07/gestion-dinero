@@ -179,8 +179,26 @@ describe('sin datos', () => {
     renderEstadisticas()
     // Una vez por gráfico.
     expect(await screen.findAllByText('Todavía no hay datos para este período')).toHaveLength(2)
-    expect(screen.queryByRole('group', { name: 'Ganancia por mes y por lugar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Lugares' })).not.toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Gastos por categoría' })).not.toBeInTheDocument()
+  })
+
+  test('sin trabajos igual se puede elegir un mes del rango para ver su ranking de gastos', async () => {
+    const supermercado = await guardarCategoria({ nombre: 'Supermercado', tipo: 'GASTO', ambito: 'PERSONAL', icono: '🛒', color: '', orden: 0 })
+    await guardarMovimiento({ tipo: 'GASTO', fecha: '2026-08-15', monto: 3000000, categoriaId: supermercado, nota: '' })
+    const user = renderEstadisticas()
+
+    // Octubre, el mes actual, no tiene gastos.
+    expect(await screen.findByRole('heading', { name: 'En qué gastás más · octubre' })).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Gastos por categoría' })).not.toBeInTheDocument()
+
+    await user.click(barraMes('agosto'))
+    expect(screen.getByRole('heading', { name: 'En qué gastás más · agosto' })).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /Supermercado/ })
+    expect(link).toHaveTextContent(new RegExp(rx(pesosJuntos(3000000))))
+    expect(link).toHaveAttribute('href', '/movimientos?mes=2026-08&filtro=GASTOS')
+    // Sin trabajos el gráfico sigue diciéndolo.
+    expect(screen.getAllByText('Todavía no hay datos para este período')).toHaveLength(1)
   })
 
   test('un filtro sin gastos lo dice, aunque haya gastos de otro ámbito', async () => {
