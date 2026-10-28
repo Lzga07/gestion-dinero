@@ -175,9 +175,7 @@ describe('avisos', () => {
     expect(screen.getByText('1 trabajo sin pagar')).toBeInTheDocument()
     expect(screen.getByText('Diferencias en pagos: $ 13.000')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ver detalle' })).toHaveAttribute('href', `/lugares/${lugarId}`)
-    const reclamo = screen.getByRole('button', { name: 'Compartir reclamo' })
-    expect(reclamo).toBeDisabled()
-    expect(reclamo).toHaveAccessibleDescription('Disponible pronto')
+    expect(screen.getByRole('button', { name: 'Compartir reclamo' })).toBeEnabled()
   })
 
   test('trabajos sin conciliar lleva a revisar el período', async () => {

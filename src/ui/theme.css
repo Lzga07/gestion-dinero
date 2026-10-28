@@ -1569,3 +1569,43 @@ li + li > .mov-fila {
   border-radius: 4px;
   background: var(--neg);
 }
+
+/* Compartir listado */
+.dialog__opcion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+.dialog__caja {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.dialog__caja:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dialog__ayuda {
+  margin: 0 0 12px;
+}
+
+.dialog__estado {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--accent);
+}
+
+.dialog__estado:not(:empty) {
+  margin-bottom: 12px;
+}
+
+.dialog__error {
+  margin: 0 0 12px;
+}

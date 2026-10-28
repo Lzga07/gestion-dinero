@@ -8,6 +8,7 @@ import type { Lugar, Pago, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import ConfirmDialog from '../components/ConfirmDialog'
+import DialogCompartir from '../components/DialogCompartir'
 import DialogoYaPagaron from '../components/DialogoYaPagaron'
 import ResumenCard from './periodo/ResumenCard'
 import SelectorPeriodo from './periodo/SelectorPeriodo'
@@ -18,6 +19,7 @@ type Dialogo =
   | { tipo: 'cobro-trabajo'; trabajo: Trabajo }
   | { tipo: 'cobro-diferencia'; monto: Centavos }
   | { tipo: 'borrar-pago'; pago: Pago }
+  | { tipo: 'compartir' }
 
 /** Período de un lugar (`/lugares/:id?periodo=<fin>`): qué le corresponde, qué le pagaron y qué falta. */
 export default function PeriodoLugar() {
@@ -171,13 +173,9 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
       )}
 
       <div className="acciones-fijas">
-        {/* Se conecta en la Tarea 15 (listado en PDF). */}
-        <Button variante="secundario" disabled title="Disponible pronto" aria-describedby="compartir-pronto">
+        <Button variante="secundario" disabled={delPeriodo.length === 0} onClick={() => setDialogo({ tipo: 'compartir' })}>
           Compartir listado
         </Button>
-        <span id="compartir-pronto" className="sr-only">
-          Disponible pronto
-        </span>
         <Link className="btn btn--primario" to={`/lugares/${lugar.id}/pago?periodo=${periodo.fin}`}>
           Registrar pago
         </Link>
@@ -203,6 +201,12 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
             await saldarDiferencia(lugar.id, periodo.fin, fecha, monto)
             setDialogo(null)
           }}
+        />
+      )}
+      {dialogo?.tipo === 'compartir' && (
+        <DialogCompartir
+          datos={{ lugar, periodo, trabajos: delPeriodo, resumen, deudasPlata: [], tipo: 'PERIODO', hoy: hoy() }}
+          onCerrar={() => setDialogo(null)}
         />
       )}
       {dialogo?.tipo === 'borrar-pago' && (

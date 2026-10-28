@@ -8,11 +8,14 @@ import { calcularAvisos, type Aviso } from '../../domain/avisos'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { formatFechaCorta, mesClave, nombreMes, type FechaISO } from '../../domain/dates'
 import { nombrePeriodo, periodoQueContiene, type Periodo } from '../../domain/periodos'
+import { datosReclamo } from '../../pdf/reclamo'
+import type { DatosListado } from '../../pdf/listado'
 import { resumenMes } from '../../domain/totales'
 import type { Lugar, Movimiento, Pago, Trabajo } from '../../domain/types'
 import AvisoCard from '../components/AvisoCard'
 import Card from '../components/Card'
 import ConfirmDialog from '../components/ConfirmDialog'
+import DialogCompartir from '../components/DialogCompartir'
 import { useHoy } from '../hooks/useHoy'
 import { plural } from './periodo/utils'
 import { pesosJuntos } from '../pesos'
@@ -53,6 +56,7 @@ export default function Inicio() {
 
 function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
   const [confirmando, setConfirmando] = useState<{ lugar: Lugar; periodo: Periodo } | null>(null)
+  const [reclamo, setReclamo] = useState<Omit<DatosListado, 'incluirNotas'> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ocupado = useRef(false)
 
@@ -120,6 +124,11 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
                 const lugar = lugarDe(lugarId)
                 if (lugar) setConfirmando({ lugar, periodo })
               }}
+              onCompartirReclamo={(lugarId) => {
+                const lugar = lugarDe(lugarId)
+                const deuda = avisos.find((x) => x.tipo === 'DEUDA' && x.lugarId === lugarId)
+                if (lugar && deuda?.tipo === 'DEUDA') setReclamo(datosReclamo(lugar, deuda, pagos, hoy))
+              }}
             />
           ))}
         </section>
@@ -165,6 +174,8 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
           </Link>
         </>
       )}
+
+      {reclamo && <DialogCompartir datos={reclamo} onCerrar={() => setReclamo(null)} />}
 
       {confirmando && (
         <ConfirmDialog

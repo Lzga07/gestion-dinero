@@ -315,16 +315,12 @@ describe('período del lugar', () => {
     expect(fila('Falta cobrar')).toHaveTextContent('$ 0')
   })
 
-  test('"Registrar pago" abre el registro del período elegido; "Compartir listado" todavía no anda', async () => {
+  test('"Registrar pago" abre el registro del período elegido', async () => {
     const lugarId = await lugarFijo()
     await septiembre(lugarId)
     const user = renderEn(`/lugares/${lugarId}?periodo=2026-09-30`)
 
-    const compartir = await screen.findByRole('button', { name: 'Compartir listado' })
-    expect(compartir).toBeDisabled()
-    expect(compartir).toHaveAttribute('title', 'Disponible pronto')
-    expect(compartir).toHaveAccessibleDescription('Disponible pronto')
-
+    await screen.findByRole('button', { name: 'Compartir listado' })
     await user.click(screen.getByRole('link', { name: 'Registrar pago' }))
     expect(await screen.findByRole('heading', { name: 'Pago · Clínica Centro' })).toBeInTheDocument()
     expect(screen.getByText('Período 1 – 30 sep')).toBeInTheDocument()

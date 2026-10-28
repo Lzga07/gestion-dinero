@@ -12,6 +12,7 @@ interface AvisoCardProps {
   /** El lugar del aviso (todos menos COPIA). */
   lugar?: Lugar
   onNoMePagaron?: (lugarId: string, periodo: Periodo) => void
+  onCompartirReclamo?: (lugarId: string) => void
 }
 
 /** Botón que todavía no hace nada (se conecta en una tarea posterior): deshabilitado y con la explicación para lectores de pantalla. */
@@ -37,7 +38,12 @@ interface Contenido {
   acciones: ReactNode
 }
 
-function contenido(aviso: Aviso, lugar: Lugar | undefined, onNoMePagaron: AvisoCardProps['onNoMePagaron']): Contenido | null {
+function contenido(
+  aviso: Aviso,
+  lugar: Lugar | undefined,
+  onNoMePagaron: AvisoCardProps['onNoMePagaron'],
+  onCompartirReclamo: AvisoCardProps['onCompartirReclamo'],
+): Contenido | null {
   if (aviso.tipo === 'COPIA') {
     return {
       nivel: 'aviso',
@@ -86,8 +92,9 @@ function contenido(aviso: Aviso, lugar: Lugar | undefined, onNoMePagaron: AvisoC
           <Link className="btn btn--secundario" to={`/lugares/${lugar.id}`}>
             Ver detalle
           </Link>
-          {/* Se conecta en la Tarea 15 (reclamo en PDF). */}
-          <BotonPronto>Compartir reclamo</BotonPronto>
+          <Button variante="secundario" onClick={() => onCompartirReclamo?.(lugar.id)}>
+            Compartir reclamo
+          </Button>
         </>
       ),
     }
@@ -106,8 +113,8 @@ function contenido(aviso: Aviso, lugar: Lugar | undefined, onNoMePagaron: AvisoC
 }
 
 /** Un aviso de Inicio: qué pasa, el detalle y lo que se puede hacer. */
-export default function AvisoCard({ aviso, lugar, onNoMePagaron }: AvisoCardProps) {
-  const c = contenido(aviso, lugar, onNoMePagaron)
+export default function AvisoCard({ aviso, lugar, onNoMePagaron, onCompartirReclamo }: AvisoCardProps) {
+  const c = contenido(aviso, lugar, onNoMePagaron, onCompartirReclamo)
   if (!c) return null
   return (
     <article className={`aviso-card aviso-card--${c.nivel}`}>
