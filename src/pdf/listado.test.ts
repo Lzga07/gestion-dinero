@@ -105,11 +105,8 @@ describe('filasListado', () => {
 })
 
 describe('pie del listado', () => {
-  test('sin pagos: total y falta cobrar, sin cobrado', () => {
-    expect(contenidoListado(datos()).pie).toEqual([
-      ['Total', '$ 100.000'],
-      ['Falta cobrar', '$ 100.000'],
-    ])
+  test('sin pagos: solo el total', () => {
+    expect(contenidoListado(datos()).pie).toEqual([['Total', '$ 100.000']])
   })
 
   test('con pagos suma lo cobrado y lo que falta', () => {
@@ -131,11 +128,39 @@ describe('pie del listado', () => {
     ])
   })
 
-  test('un cobrado negativo nunca se imprime como negativo', () => {
+  test('con pagos parciales, Total - Cobrado = Falta cobrar', () => {
+    const d = datos({ resumen: resumenPeriodo(porcentaje, SEPTIEMBRE, [limpieza, corona], [pago({ monto: 4500000 })]) })
+
+    const pie = Object.fromEntries(contenidoListado(d).pie.map(([k, v]) => [k, Number(v.replace(/\D/g, ''))]))
+
+    expect(pie).toEqual({ Total: 100000, Cobrado: 45000, 'Falta cobrar': 55000 })
+    expect(pie.Total - pie.Cobrado).toBe(pie['Falta cobrar'])
+  })
+
+  test('lo cobrado con un pago de otro período también cuenta (tienePagos en false)', () => {
+    // Un pago de octubre tilda el trabajo de septiembre: septiembre no tiene pagos propios pero ya cobró 40.000.
+    const pagoDeOctubre = pago({ id: 'p9', periodoFin: '2026-10-31', fecha: '2026-10-22', monto: 4000000 })
+    const pagado = { ...limpieza, estado: 'PAGADO' as const, pagoId: 'p9' }
+    const resumen = resumenPeriodo(porcentaje, SEPTIEMBRE, [pagado, corona], [pagoDeOctubre])
+    expect(resumen.tienePagos).toBe(false)
+    expect(resumen.cobrado).toBe(4000000)
+
+    expect(contenidoListado(datos({ trabajos: [pagado, corona], resumen })).pie).toEqual([
+      ['Total', '$ 100.000'],
+      ['Cobrado', '$ 40.000'],
+      ['Falta cobrar', '$ 60.000'],
+    ])
+  })
+
+  test('un cobrado negativo se muestra como $ 0 y la falta cobrar cierra con el total', () => {
     const base = resumenPeriodo(porcentaje, SEPTIEMBRE, [limpieza, corona], [pago({})])
     const pie = contenidoListado(datos({ resumen: { ...base, cobrado: -500000, faltaCobrar: 10500000 } })).pie
 
-    expect(pie).toContainEqual(['Cobrado', '$ 0'])
+    expect(pie).toEqual([
+      ['Total', '$ 100.000'],
+      ['Cobrado', '$ 0'],
+      ['Falta cobrar', '$ 100.000'],
+    ])
     expect(pie.flat().join(' ')).not.toMatch(/[-−]/)
   })
 

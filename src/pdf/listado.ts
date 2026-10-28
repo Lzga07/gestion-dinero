@@ -114,10 +114,16 @@ function pieDe(d: DatosListado): [string, string][] {
   if (d.tipo === 'RECLAMO') {
     return [['Total a reclamar', pesos(suma(trabajosDe(d)) + suma(d.deudasPlata))]]
   }
-  const pie: [string, string][] = [['Total', pesos(suma(d.trabajos))]]
+  const total = suma(d.trabajos)
+  const pie: [string, string][] = [['Total', pesos(total)]]
   const r = d.resumen
-  if (r?.tienePagos) pie.push(['Cobrado', pesos(Math.max(0, r.cobrado))])
-  if (r && r.faltaCobrar > 0) pie.push(['Falta cobrar', pesos(r.faltaCobrar)])
+  // Cobrado puede venir de un pago de otro período (tienePagos sigue en false) o ser negativo en casos raros.
+  if (!r || (!r.tienePagos && r.cobrado === 0)) return pie
+  // Valores mostrados: siempre cumplen Total - Cobrado = Falta cobrar.
+  const cobrado = Math.max(0, r.cobrado)
+  const falta = Math.max(0, total - cobrado)
+  pie.push(['Cobrado', pesos(cobrado)])
+  if (falta > 0) pie.push(['Falta cobrar', pesos(falta)])
   return pie
 }
 
