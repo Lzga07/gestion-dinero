@@ -43,10 +43,14 @@ export async function archivarLugar(id: string, archivado: boolean): Promise<voi
   if (n === 0) throw new ErrorDatos('LUGAR_INEXISTENTE');
 }
 
-/** Un lugar con trabajos no se borra (se archiva). Sin trabajos, se borra junto con su lista de trabajos. */
+/**
+ * Un lugar con trabajos o con pagos no se borra (se archiva): un pago sin lugar quedaría contando en los
+ * totales sin que ninguna pantalla pueda mostrarlo. Sin ninguno, se borra junto con su lista de trabajos.
+ */
 export async function borrarLugar(id: string): Promise<void> {
-  await db.transaction('rw', db.lugares, db.tiposTrabajo, db.trabajos, async () => {
+  await db.transaction('rw', db.lugares, db.tiposTrabajo, db.trabajos, db.pagos, async () => {
     if ((await db.trabajos.where('lugarId').equals(id).count()) > 0) throw new ErrorDatos('LUGAR_CON_TRABAJOS');
+    if ((await db.pagos.where('lugarId').equals(id).count()) > 0) throw new ErrorDatos('LUGAR_CON_PAGOS');
     await db.tiposTrabajo.where('lugarId').equals(id).delete();
     await db.lugares.delete(id);
   });

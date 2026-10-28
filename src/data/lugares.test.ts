@@ -5,7 +5,9 @@ import { ErrorDatos } from './errores';
 import {
   actualizarLugar, archivarLugar, borrarLugar, borrarTipoTrabajo, crearLugar, guardarTipoTrabajo,
 } from './lugares';
+import { registrarPago, saldarDiferencia } from './pagos';
 import { anotarTrabajo, lugarFijo, reiniciarDb } from './test-helpers';
+import { borrarTrabajo } from './trabajos';
 
 beforeEach(reiniciarDb);
 
@@ -45,6 +47,31 @@ test('borrar un lugar sin trabajos lo borra junto con sus tipos de trabajo, y no
   expect(await db.lugares.get(id)).toBeUndefined();
   expect(await db.tiposTrabajo.where('lugarId').equals(id).count()).toBe(0);
   expect(await db.tiposTrabajo.where('lugarId').equals(otro).count()).toBe(1);
+});
+
+test('un lugar con pagos pero sin trabajos tampoco se borra; se puede archivar', async () => {
+  const id = await lugarFijo();
+  const trabajoId = await anotarTrabajo(id, '2026-10-05');
+  const pagoId = await registrarPago({
+    lugarId: id, periodoFin: '2026-10-31', fecha: '2026-11-25', monto: 10000, tipo: 'FINAL', nota: '',
+    tildados: [trabajoId], destildados: [],
+  });
+  await saldarDiferencia(id, '2026-10-31', '2026-11-26', 500);
+  await borrarTrabajo(trabajoId); // el pago queda a propósito
+  expect(await db.trabajos.where('lugarId').equals(id).count()).toBe(0);
+
+  await expect(borrarLugar(id)).rejects.toMatchObject({ codigo: 'LUGAR_CON_PAGOS' });
+  expect(await db.lugares.get(id)).toBeDefined();
+  expect(await db.pagos.get(pagoId)).toBeDefined();
+  expect(await db.pagos.where('lugarId').equals(id).count()).toBe(2);
+
+  await archivarLugar(id, true);
+  expect((await db.lugares.get(id))!.archivado).toBe(true);
+
+  // Un pago suelto (solo saldarDiferencia) también lo impide.
+  const otro = await lugarFijo('ULTIMO', 'Otro');
+  await saldarDiferencia(otro, '2026-10-31', '2026-11-26', 500);
+  await expect(borrarLugar(otro)).rejects.toMatchObject({ codigo: 'LUGAR_CON_PAGOS' });
 });
 
 test('cambiar día de cierre agrega una regla desde el próximo período', async () => {

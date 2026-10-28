@@ -1,4 +1,4 @@
-import { beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { db } from './db';
 import {
   borrarPago, marcarNoPagado, noMePagaron, registrarPago, saldarDiferencia, yaMeLoPagaron,
@@ -47,6 +47,36 @@ test('si falla a mitad, registrarPago no deja nada escrito', async () => {
   expect(await db.pagos.count()).toBe(0);
   expect(await db.trabajos.get(a)).toMatchObject({ estado: 'PENDIENTE', pagoId: null });
   expect(await db.trabajos.get(b)).toMatchObject({ estado: 'PENDIENTE', pagoId: null });
+});
+
+test('si falla en medio de la transacción (después de crear el pago), no queda nada escrito', async () => {
+  const lugarId = await lugarFijo();
+  const a = await anotarTrabajo(lugarId, '2026-10-05');
+  const b = await anotarTrabajo(lugarId, '2026-10-06');
+  const c = await anotarTrabajo(lugarId, '2026-10-07');
+  const antes = await db.trabajos.toArray();
+
+  const original = db.trabajos.update.bind(db.trabajos);
+  let llamadas = 0;
+  const espia = vi.spyOn(db.trabajos, 'update').mockImplementation(((...args: Parameters<typeof original>) => {
+    llamadas++;
+    if (llamadas === 2) return Promise.reject(new Error('falla simulada'));
+    return original(...args);
+  }) as typeof original);
+
+  try {
+    await expect(
+      registrarPago({ lugarId, ...pago, monto: 20000, tipo: 'FINAL', tildados: [a, b], destildados: [c] }),
+    ).rejects.toThrow('falla simulada');
+  } finally {
+    espia.mockRestore();
+  }
+
+  expect(llamadas).toBe(2); // el pago ya se había creado y el primer trabajo ya se había actualizado
+  expect(await db.pagos.count()).toBe(0);
+  const despues = await db.trabajos.toArray();
+  expect(despues.sort((x, y) => x.id.localeCompare(y.id))).toEqual(antes.sort((x, y) => x.id.localeCompare(y.id)));
+  expect(despues.every(t => t.estado === 'PENDIENTE' && t.pagoId === null)).toBe(true);
 });
 
 test('registrarPago rechaza un trabajo de otro lugar sin escribir nada', async () => {
