@@ -263,7 +263,10 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
         // Solo una comodidad: si no se puede recordar, el trabajo igual quedó guardado.
         await guardarAjuste('ultimoLugarId', lugarId).catch(() => undefined)
       }
-      if (periodoYaPagado) setPregunta({ id, monto: res.monto })
+      // Solo se pregunta por trabajos olvidados (nuevos o todavía sin resolver): uno ya pagado, o ya
+      // marcado como no pagado, no se vuelve a preguntar al editarlo.
+      const sinResolver = !trabajo || (trabajo.estado === 'PENDIENTE' && trabajo.pagoId === null)
+      if (periodoYaPagado && sinResolver) setPregunta({ id, monto: res.monto })
       else volver()
     } catch {
       setErrorGeneral('No se pudo guardar. Probá de nuevo.')

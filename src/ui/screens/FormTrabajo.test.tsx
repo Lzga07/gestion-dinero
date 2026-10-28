@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { leerAjuste, guardarAjuste } from '../../data/ajustes'
 import { db } from '../../data/db'
 import { crearLugar, guardarTipoTrabajo } from '../../data/lugares'
+import * as datosPagos from '../../data/pagos'
 import { registrarPago } from '../../data/pagos'
 import * as datosTrabajos from '../../data/trabajos'
 import { anotarTrabajo, lugarFijo, reiniciarDb } from '../../data/test-helpers'
@@ -320,6 +321,30 @@ describe('guardado', () => {
     expect(await db.trabajos.count()).toBe(1)
   })
 
+  test('el botón Guardar queda deshabilitado mientras se guarda', async () => {
+    const lugarId = await lugarFijo()
+    await guardarTipoTrabajo({ lugarId, nombre: 'Limpieza', precio: 2500000, orden: 0 })
+    const original = datosTrabajos.guardarTrabajo
+    let soltar: () => void = () => undefined
+    const pendiente = new Promise<void>((r) => {
+      soltar = r
+    })
+    vi.spyOn(datosTrabajos, 'guardarTrabajo').mockImplementation(async (t) => {
+      await pendiente
+      return original(t)
+    })
+    const user = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
+    await user.click(await screen.findByRole('radio', { name: /Limpieza/ }))
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled()
+    expect(screen.queryByRole('heading', { name: 'Origen' })).not.toBeInTheDocument()
+    soltar()
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.count()).toBe(1)
+  })
+
   test('si falla el guardado muestra el error y deja volver a intentar', async () => {
     const lugarId = await lugarFijo()
     await guardarTipoTrabajo({ lugarId, nombre: 'Limpieza', precio: 2500000, orden: 0 })
@@ -432,5 +457,165 @@ describe('editar', () => {
     expect(select).toHaveValue(c)
     const nombres = Array.from(select.querySelectorAll('option')).map((o) => o.value)
     expect(nombres.sort()).toEqual([a, b, c].sort())
+  })
+})
+
+describe('editar: casos delicados', () => {
+  async function dosPeriodosPagados(lugarId: string) {
+    const agosto = await anotarTrabajo(lugarId, '2026-08-10')
+    await registrarPago({
+      lugarId, periodoFin: '2026-08-31', fecha: '2026-09-05', monto: 10000, tipo: 'FINAL', nota: '',
+      tildados: [agosto], destildados: [],
+    })
+    const setiembre = await anotarTrabajo(lugarId, '2026-09-10')
+    await registrarPago({
+      lugarId, periodoFin: '2026-09-30', fecha: '2026-10-05', monto: 10000, tipo: 'FINAL', nota: '',
+      tildados: [setiembre], destildados: [],
+    })
+    return { agosto, setiembre }
+  }
+
+  async function cambiarFecha(user: ReturnType<typeof userEvent.setup>, fecha: string) {
+    await user.clear(await screen.findByLabelText('Fecha'))
+    await user.type(screen.getByLabelText('Fecha'), fecha)
+  }
+
+  test('editar un trabajo PAGADO hacia otro período pagado no pregunta ni crea otro pago', async () => {
+    const lugarId = await lugarFijo()
+    const { agosto } = await dosPeriodosPagados(lugarId)
+    const antes = (await db.trabajos.get(agosto))!
+    expect(antes.estado).toBe('PAGADO')
+
+    const user = renderEn(`/trabajo/${agosto}`)
+    await cambiarFecha(user, '2026-09-20')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await db.pagos.count()).toBe(2)
+    expect(await db.trabajos.get(agosto)).toMatchObject({
+      fecha: '2026-09-20', estado: 'PAGADO', pagoId: antes.pagoId,
+    })
+  })
+
+  test('editar un trabajo PENDIENTE hacia un período pagado sí pregunta, y "No" lo deja NO_PAGADO', async () => {
+    const lugarId = await lugarFijo()
+    await dosPeriodosPagados(lugarId)
+    const pendiente = await anotarTrabajo(lugarId, '2026-10-05')
+
+    const user = renderEn(`/trabajo/${pendiente}`)
+    await cambiarFecha(user, '2026-09-20')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('dialog', { name: '¿Este trabajo ya te lo pagaron?' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'No' }))
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(pendiente)).toMatchObject({ fecha: '2026-09-20', estado: 'NO_PAGADO', pagoId: null })
+    expect(await db.pagos.count()).toBe(2)
+  })
+
+  test('si falla "Sí" avisa que el trabajo se guardó y no vuelve', async () => {
+    const lugarId = await lugarFijo()
+    await dosPeriodosPagados(lugarId)
+    const pendiente = await anotarTrabajo(lugarId, '2026-10-05')
+    vi.spyOn(datosPagos, 'yaMeLoPagaron').mockRejectedValueOnce(new Error('boom'))
+
+    const user = renderEn(`/trabajo/${pendiente}`)
+    await cambiarFecha(user, '2026-09-20')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(await screen.findByRole('button', { name: 'Sí' }))
+
+    expect(
+      await screen.findByText('El trabajo se guardó, pero no pudimos registrar si te lo pagaron.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Origen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await db.trabajos.get(pendiente)).toMatchObject({ fecha: '2026-09-20', estado: 'PENDIENTE' })
+    expect(await db.pagos.count()).toBe(2)
+  })
+
+  test('si falla "No" avisa que el trabajo se guardó y no vuelve', async () => {
+    const lugarId = await lugarFijo()
+    await dosPeriodosPagados(lugarId)
+    const pendiente = await anotarTrabajo(lugarId, '2026-10-05')
+    vi.spyOn(datosPagos, 'marcarNoPagado').mockRejectedValueOnce(new Error('boom'))
+
+    const user = renderEn(`/trabajo/${pendiente}`)
+    await cambiarFecha(user, '2026-09-20')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(await screen.findByRole('button', { name: 'No' }))
+
+    expect(
+      await screen.findByText('El trabajo se guardó, pero no pudimos registrar si te lo pagaron.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Origen' })).not.toBeInTheDocument()
+    expect(await db.trabajos.get(pendiente)).toMatchObject({ estado: 'PENDIENTE' })
+  })
+
+  test('cambiar a otro lugar con porcentaje distinto usa el porcentaje de ese lugar', async () => {
+    const p = await lugarPorcentaje('Consultorio Sur', 4000)
+    const q = await lugarPorcentaje('Consultorio Norte', 5000)
+    const user0 = renderEn(`/trabajo/nuevo?lugar=${p}`)
+    await user0.type(await screen.findByLabelText('¿Qué hiciste?'), 'Corona')
+    await user0.type(screen.getByLabelText('Lo que pagó el cliente'), '200.000')
+    await user0.click(screen.getByRole('button', { name: 'Guardar' }))
+    await screen.findByRole('heading', { name: 'Origen' })
+    const [creado] = await db.trabajos.toArray()
+    document.body.innerHTML = ''
+
+    const user = renderEn(`/trabajo/${creado.id}`)
+    expect(await screen.findByText('$ 80.000')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Lugar'), q)
+    expect(screen.getByText('200.000 × 50 %')).toBeInTheDocument()
+    expect(screen.getByText('$ 100.000')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(creado.id)).toMatchObject({
+      lugarId: q, porcentajeBp: 5000, monto: 10000000, montoCliente: 20000000,
+    })
+  })
+
+  test('cambiar a otro lugar de arancel fijo reinicia el tipo y guarda el precio del nuevo lugar', async () => {
+    const { id: a, tipoId } = await lugarConArreglo('Clínica Centro')
+    const b = await lugarFijo('ULTIMO', 'Clínica Norte')
+    const tipoB = await guardarTipoTrabajo({ lugarId: b, nombre: 'Corona', precio: 9000000, orden: 0 })
+    const trabajoId = await anotarTrabajo(a, '2026-10-05', 3800000)
+    await db.trabajos.update(trabajoId, { descripcion: 'Arreglo', tipoTrabajoId: tipoId, precioLista: 3800000 })
+
+    const user = renderEn(`/trabajo/${trabajoId}`)
+    expect(await screen.findByRole('radio', { name: /Arreglo/ })).toBeChecked()
+    await user.selectOptions(screen.getByLabelText('Lugar'), b)
+    expect(screen.getByRole('radio', { name: /Corona/ })).not.toBeChecked()
+    expect(screen.queryByRole('radio', { name: /Arreglo/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByText('Elegí qué hiciste')).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({ lugarId: a, precioLista: 3800000 })
+
+    await user.click(screen.getByRole('radio', { name: /Corona/ }))
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({
+      lugarId: b, descripcion: 'Corona', tipoTrabajoId: tipoB, precioLista: 9000000, monto: 9000000,
+    })
+  })
+
+  test('pasar un trabajo de arancel fijo a un lugar con porcentaje lo recalcula con ese porcentaje', async () => {
+    const { id: a, tipoId } = await lugarConArreglo('Clínica Centro')
+    const p = await lugarPorcentaje('Consultorio Sur', 4000)
+    const trabajoId = await anotarTrabajo(a, '2026-10-05', 3800000)
+    await db.trabajos.update(trabajoId, { descripcion: 'Arreglo', tipoTrabajoId: tipoId, precioLista: 3800000 })
+
+    const user = renderEn(`/trabajo/${trabajoId}`)
+    await user.selectOptions(await screen.findByLabelText('Lugar'), p)
+    expect(screen.getByLabelText('¿Qué hiciste?')).toHaveValue('Arreglo')
+    await user.type(screen.getByLabelText('Lo que pagó el cliente'), '100.000')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({
+      lugarId: p, tipoTrabajoId: null, precioLista: null, montoCliente: 10000000, porcentajeBp: 4000, monto: 4000000,
+    })
   })
 })
