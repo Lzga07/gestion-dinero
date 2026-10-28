@@ -649,4 +649,46 @@ describe('editar: casos delicados', () => {
       lugarId: p, tipoTrabajoId: null, precioLista: null, montoCliente: 10000000, porcentajeBp: 4000, monto: 4000000,
     })
   })
+
+  test('mover a otro lugar un trabajo pagado avisa antes de guardar y lo deja pendiente', async () => {
+    const a = await lugarFijo('ULTIMO', 'Clínica Centro')
+    const b = await lugarFijo('ULTIMO', 'Clínica Norte')
+    const trabajoId = await anotarTrabajo(a, '2026-10-05', 3800000)
+    const pagoId = await registrarPago({
+      lugarId: a, periodoFin: '2026-10-31', fecha: '2026-10-25', monto: 3800000, tipo: 'FINAL', nota: '',
+      tildados: [trabajoId], destildados: [],
+    })
+
+    const user = renderEn(`/trabajo/${trabajoId}`)
+    await user.selectOptions(await screen.findByLabelText('Lugar'), b)
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    const dialogo = await screen.findByRole('dialog', { name: '¿Mover el trabajo a Clínica Norte?' })
+    expect(
+      within(dialogo).getByText(
+        'Este trabajo estaba pagado en Clínica Centro. Al moverlo vuelve a pendiente en Clínica Norte y el pago de Clínica Centro queda con esa diferencia.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(within(dialogo).getByRole('button', { name: 'Cancelar' }))
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({ lugarId: a, estado: 'PAGADO', pagoId })
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Mover' }))
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({ lugarId: b, estado: 'PENDIENTE', pagoId: null, monto: 3800000 })
+    expect(await db.pagos.get(pagoId)).toMatchObject({ lugarId: a })
+  })
+
+  test('mover un trabajo pendiente no pregunta nada', async () => {
+    const a = await lugarFijo('ULTIMO', 'Clínica Centro')
+    const b = await lugarFijo('ULTIMO', 'Clínica Norte')
+    const trabajoId = await anotarTrabajo(a, '2026-10-05', 3800000)
+
+    const user = renderEn(`/trabajo/${trabajoId}`)
+    await user.selectOptions(await screen.findByLabelText('Lugar'), b)
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({ lugarId: b, estado: 'PENDIENTE' })
+  })
 })

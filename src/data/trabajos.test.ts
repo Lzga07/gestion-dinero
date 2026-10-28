@@ -104,3 +104,35 @@ test('borrar un trabajo pagado deja el pago existiendo', async () => {
   expect(await db.trabajos.get(id)).toBeUndefined();
   expect(await db.pagos.get(pagoId)).toBeDefined();
 });
+
+test('mover un trabajo pagado a otro lugar lo deja PENDIENTE y sin pago; el pago del lugar viejo sigue', async () => {
+  const a = await lugarFijo('ULTIMO', 'Clínica Centro');
+  const b = await lugarFijo('ULTIMO', 'Clínica Norte');
+  const id = await anotarTrabajo(a, '2026-10-05');
+  const pagoId = await registrarPago({
+    lugarId: a, periodoFin: '2026-10-31', fecha: '2026-11-25', monto: 10000, tipo: 'FINAL', nota: '',
+    tildados: [id], destildados: [],
+  });
+
+  await guardarTrabajo({ ...base, id, lugarId: b, fecha: '2026-10-05' });
+
+  expect(await db.trabajos.get(id)).toMatchObject({ lugarId: b, estado: 'PENDIENTE', pagoId: null });
+  expect(await db.pagos.get(pagoId)).toMatchObject({ lugarId: a, monto: 10000 });
+});
+
+test('mover un trabajo no pagado a otro lugar también lo deja PENDIENTE; editar sin mover conserva el estado', async () => {
+  const a = await lugarFijo('ULTIMO', 'Clínica Centro');
+  const b = await lugarFijo('ULTIMO', 'Clínica Norte');
+  const x = await anotarTrabajo(a, '2026-10-05');
+  const y = await anotarTrabajo(a, '2026-10-06');
+  await registrarPago({
+    lugarId: a, periodoFin: '2026-10-31', fecha: '2026-11-25', monto: 0, tipo: 'FINAL', nota: '',
+    tildados: [], destildados: [x, y],
+  });
+
+  await guardarTrabajo({ ...base, id: x, lugarId: b, fecha: '2026-10-05' });
+  await guardarTrabajo({ ...base, id: y, lugarId: a, fecha: '2026-10-07' });
+
+  expect(await db.trabajos.get(x)).toMatchObject({ lugarId: b, estado: 'PENDIENTE', pagoId: null });
+  expect(await db.trabajos.get(y)).toMatchObject({ lugarId: a, estado: 'NO_PAGADO', pagoId: null });
+});

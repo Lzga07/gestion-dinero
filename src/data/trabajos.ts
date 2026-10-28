@@ -6,7 +6,8 @@ import { ErrorDatos } from './errores';
 type EntradaTrabajo = Omit<Trabajo, 'id' | 'creadoEn' | 'actualizadoEn' | 'estado' | 'pagoId'> & { id?: string };
 
 /**
- * Crea (PENDIENTE) o edita (conserva estado, pago y creación) un trabajo.
+ * Crea (PENDIENTE) o edita (conserva estado, pago y creación) un trabajo. Si la edición lo cambia de lugar,
+ * vuelve a PENDIENTE y sin pago.
  * `periodoYaPagado`: el período de la fecha ya tiene algún pago y el trabajo es nuevo o cambió de período.
  */
 export async function guardarTrabajo(t: EntradaTrabajo): Promise<{ id: string; periodoYaPagado: boolean }> {
@@ -19,9 +20,15 @@ export async function guardarTrabajo(t: EntradaTrabajo): Promise<{ id: string; p
     const ahora = ahoraISO();
     const id = previo ? previo.id : nuevoId();
     const fin = periodoQueContiene(lugar.reglasCierre, t.fecha).fin;
+    // Un pago es de un lugar: si el trabajo se muda, deja de estar en ese pago y vuelve a pendiente en el
+    // lugar nuevo (el pago del lugar viejo queda con esa diferencia, como al borrar un trabajo pagado).
+    const conserva = previo && previo.lugarId === t.lugarId;
     await db.trabajos.put(
       previo
-        ? { ...t, id, estado: previo.estado, pagoId: previo.pagoId, creadoEn: previo.creadoEn, actualizadoEn: ahora }
+        ? {
+            ...t, id, creadoEn: previo.creadoEn, actualizadoEn: ahora,
+            estado: conserva ? previo.estado : 'PENDIENTE', pagoId: conserva ? previo.pagoId : null,
+          }
         : { ...t, id, estado: 'PENDIENTE', pagoId: null, creadoEn: ahora, actualizadoEn: ahora },
     );
 

@@ -87,6 +87,13 @@ export default function FormTrabajo() {
   return <Formulario key={id ?? 'nuevo'} datos={datos} lugarPedido={params.get('lugar')} />
 }
 
+/** Qué pasa al mudar de lugar un trabajo que ya estaba pagado o marcado como no pagado. */
+function textoMudanza(trabajo: Trabajo, de: string, a: string): string {
+  return trabajo.estado === 'PAGADO'
+    ? `Este trabajo estaba pagado en ${de}. Al moverlo vuelve a pendiente en ${a} y el pago de ${de} queda con esa diferencia.`
+    : `Este trabajo estaba marcado como no pagado en ${de}. Al moverlo vuelve a pendiente en ${a} y deja de ser una deuda de ${de}.`
+}
+
 /** Todos los errores a la vez: si falta la descripción, igual se revisa lo demás. */
 function erroresDe(entrada: EntradaTrabajo): Set<ErrorTrabajo> {
   const errores = new Set<ErrorTrabajo>()
@@ -144,11 +151,13 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
   const [intentado, setIntentado] = useState(0)
   const [guardando, setGuardando] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
-  const [dialogo, setDialogo] = useState<'borrar' | null>(null)
+  const [dialogo, setDialogo] = useState<'borrar' | 'mover' | null>(null)
   const [pregunta, setPregunta] = useState<{ id: string; monto: Centavos } | null>(null)
 
   const lugar = lugares.find((l) => l.id === lugarId) as Lugar
   const esPorcentaje = lugar.formaCobro === 'PORCENTAJE'
+  /** El trabajo editado cambia a otro lugar estando pagado o no pagado (vuelve a pendiente al guardar). */
+  const mudanza = !!trabajo && trabajo.lugarId !== lugarId && trabajo.estado !== 'PENDIENTE'
   const tiposLugar = tipos
     .filter((t) => t.lugarId === lugarId)
     .map((t) =>
@@ -223,6 +232,17 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
       setIntentado((n) => n + 1)
       return
     }
+    // Mudar de lugar un trabajo ya resuelto (pagado o no pagado) lo vuelve a pendiente: se avisa antes.
+    if (mudanza && !idGuardado.current) {
+      setDialogo('mover')
+      return
+    }
+    await grabar()
+  }
+
+  async function grabar() {
+    if (guardandoRef.current || !res.ok) return
+    setDialogo(null)
     guardandoRef.current = true
     setGuardando(true)
     const conDescuento = esPorcentaje && descuento !== null && descuento > 0
@@ -246,9 +266,10 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
         // Solo una comodidad: si no se puede recordar, el trabajo igual quedó guardado.
         await guardarAjuste('ultimoLugarId', lugarId).catch(() => undefined)
       }
-      // Solo se pregunta por trabajos olvidados (nuevos o todavía sin resolver): uno ya pagado, o ya
-      // marcado como no pagado, no se vuelve a preguntar al editarlo.
-      const sinResolver = !trabajo || (trabajo.estado === 'PENDIENTE' && trabajo.pagoId === null)
+      // Solo se pregunta por trabajos olvidados (nuevos, mudados de lugar o todavía sin resolver): uno ya
+      // pagado, o ya marcado como no pagado, no se vuelve a preguntar al editarlo.
+      const sinResolver =
+        !trabajo || trabajo.lugarId !== lugarId || (trabajo.estado === 'PENDIENTE' && trabajo.pagoId === null)
       if (periodoYaPagado && sinResolver) setPregunta({ id, monto: res.monto })
       else volver()
     } catch {
@@ -485,6 +506,15 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
         )}
       </form>
 
+      {dialogo === 'mover' && trabajo && (
+        <ConfirmDialog
+          titulo={`¿Mover el trabajo a ${lugar.nombre}?`}
+          texto={textoMudanza(trabajo, actual?.nombre ?? 'el otro lugar', lugar.nombre)}
+          confirmar="Mover"
+          onConfirm={grabar}
+          onCancel={() => setDialogo(null)}
+        />
+      )}
       {dialogo === 'borrar' && (
         <ConfirmDialog
           titulo="¿Borrar este trabajo?"
