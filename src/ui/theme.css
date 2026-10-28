@@ -1755,6 +1755,28 @@ button.lugar-row {
   text-decoration: underline;
 }
 
+/* Versión nueva lista para aplicar: discreto, en el flujo de la página como el de instalación. */
+.version-nueva {
+  margin: 0;
+  padding: 0 max(16px, calc((100% - 448px) / 2));
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.version-nueva__boton {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* ---------- PIN de privacidad ---------- */
 
 .aviso-confirmacion {

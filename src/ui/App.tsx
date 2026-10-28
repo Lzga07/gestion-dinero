@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import { pedirPersistencia } from '../platform/persistencia'
+import AvisoVersionNueva from './components/AvisoVersionNueva'
 import BannerInstalar from './components/BannerInstalar'
 import BottomNav from './components/BottomNav'
 import Categorias from './screens/Categorias'
@@ -39,6 +40,7 @@ export default function App() {
         <div inert={tapada} aria-hidden={tapada || undefined}>
           <HashRouter>
             <div className="app-shell">
+              <AvisoVersionNueva />
               <BannerInstalar />
               <main className="app-content">
                 <Routes>

@@ -9,7 +9,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': la versión nueva espera al próximo arranque o a "Actualizar" (AvisoVersionNueva). Con
+      // 'autoUpdate' se activaba a mitad de uso y borraba los archivos que la página abierta todavía pedía
+      // (el primer PDF después de cada publicación fallaba).
+      registerType: 'prompt',
       manifest: {
         name: 'Gestión Dinero',
         short_name: 'Gestión Dinero',
