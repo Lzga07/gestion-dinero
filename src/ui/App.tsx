@@ -1,7 +1,9 @@
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
+import Categorias from './screens/Categorias'
 import ConfigLugar from './screens/ConfigLugar'
 import Estadisticas from './screens/Estadisticas'
+import FormMovimiento from './screens/FormMovimiento'
 import FormTrabajo from './screens/FormTrabajo'
 import Inicio from './screens/Inicio'
 import Lugares from './screens/Lugares'
@@ -18,6 +20,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Inicio />} />
             <Route path="/movimientos" element={<Movimientos />} />
+            <Route path="/movimiento/nuevo" element={<FormMovimiento />} />
+            <Route path="/movimiento/:id" element={<FormMovimiento />} />
             <Route path="/lugares" element={<Lugares />} />
             <Route path="/lugares/nuevo" element={<ConfigLugar />} />
             <Route path="/lugares/:id" element={<PeriodoLugar />} />
@@ -27,6 +31,7 @@ export default function App() {
             <Route path="/trabajo/:id" element={<FormTrabajo />} />
             <Route path="/estadisticas" element={<Estadisticas />} />
             <Route path="/mas" element={<Mas />} />
+            <Route path="/mas/categorias" element={<Categorias />} />
           </Routes>
         </main>
         <BottomNav />

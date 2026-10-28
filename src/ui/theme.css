@@ -1149,3 +1149,162 @@ a.screen-header__back {
   outline: 3px solid var(--text);
   outline-offset: 2px;
 }
+
+/* Movimientos, gastos, ingresos y categorías */
+:root {
+  /* Colores que se pueden elegir para una categoría */
+  --cat-1: #9e4430;
+  --cat-2: #b8693f;
+  --cat-3: #7a4a8c;
+  --cat-4: #8a6d3b;
+  --cat-5: #5b6f9e;
+  --cat-6: #b08a1e;
+  --cat-7: #a8435c;
+  --cat-8: #25685b;
+}
+
+.movimientos {
+  /* Lugar para el botón flotante, que no tape la última fila */
+  padding-bottom: 72px;
+}
+
+.mov-mes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mov-mes .btn {
+  min-width: 44px;
+  font-size: 1.5rem;
+}
+
+.mov-mes__nombre {
+  font-weight: 700;
+}
+
+.mov-fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 16px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mov-fila:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+li + li > .mov-fila {
+  border-top: 1px solid var(--line);
+}
+
+.mov-fila__icono {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--pill-bg);
+  font-size: 1rem;
+}
+
+.mov-fila__texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mov-fila__titulo {
+  overflow-wrap: anywhere;
+}
+
+.mov-fila__monto {
+  flex: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.etiqueta {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--seg-bg);
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.menu-nuevo {
+  display: grid;
+  gap: 8px;
+}
+
+.grupo-chips {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.grupo-chips__titulo {
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.categorias__crear {
+  margin-top: 8px;
+}
+
+.muestra {
+  position: relative;
+  display: flex;
+}
+
+.muestra__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.muestra__color {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--card);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--field-border);
+}
+
+.muestra__input:checked + .muestra__color {
+  box-shadow: 0 0 0 3px var(--text);
+}
+
+.muestra__input:focus-visible + .muestra__color {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.segmented__input:disabled + .segmented__text {
+  opacity: 0.6;
+}

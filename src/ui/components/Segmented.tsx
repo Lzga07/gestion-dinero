@@ -10,10 +10,17 @@ interface SegmentedProps<T extends string> {
   options: Opcion<T>[]
   value: T
   onChange: (valor: T) => void
+  disabled?: boolean
 }
 
 /** Selector de una opción entre pocas (radios nativos con aspecto de segmentos). */
-export default function Segmented<T extends string>({ legend, options, value, onChange }: SegmentedProps<T>) {
+export default function Segmented<T extends string>({
+  legend,
+  options,
+  value,
+  onChange,
+  disabled = false,
+}: SegmentedProps<T>) {
   const nombre = useId()
   return (
     <fieldset className="field segmented-field">
@@ -27,6 +34,7 @@ export default function Segmented<T extends string>({ legend, options, value, on
               name={nombre}
               value={o.value}
               checked={o.value === value}
+              disabled={disabled}
               onChange={() => onChange(o.value)}
             />
             <span className="segmented__text">{o.label}</span>
