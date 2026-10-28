@@ -99,6 +99,7 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
       <SelectorPeriodo
         lugar={lugar}
         trabajos={trabajos}
+        pagos={pagos}
         seleccionado={periodo}
         onElegir={(fin: FechaISO) => setParams({ periodo: fin }, { replace: true })}
       />

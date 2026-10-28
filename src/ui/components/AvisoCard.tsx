@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Aviso } from '../../domain/avisos'
-import { nombrePeriodo } from '../../domain/periodos'
+import type { FechaISO } from '../../domain/dates'
+import { nombrePeriodo, periodoQueContiene } from '../../domain/periodos'
 import type { Lugar } from '../../domain/types'
 import { plural } from '../screens/periodo/utils'
 import Button from './Button'
@@ -9,6 +10,16 @@ import { pesosJuntos } from '../pesos'
 
 type AvisoPeriodo = Extract<Aviso, { tipo: 'PAGO_ATRASADO' | 'SIN_CONCILIAR' }>
 export type AvisoSinConciliar = Extract<Aviso, { tipo: 'SIN_CONCILIAR' }>
+export type AvisoDeuda = Extract<Aviso, { tipo: 'DEUDA' }>
+
+/** Fin del período más antiguo con deuda (un trabajo sin pagar o una diferencia en plata). */
+function periodoMasAntiguo(lugar: Lugar, aviso: AvisoDeuda): FechaISO | null {
+  const fines = [
+    ...aviso.noPagados.map((tr) => periodoQueContiene(lugar.reglasCierre, tr.fecha).fin),
+    ...aviso.deudasPlata.map((d) => d.periodo.fin),
+  ]
+  return fines.length === 0 ? null : fines.reduce((a, b) => (b < a ? b : a))
+}
 
 interface AvisoCardProps {
   aviso: Aviso
@@ -18,6 +29,8 @@ interface AvisoCardProps {
   onNoMePagaron?: (aviso: AvisoPeriodo) => void
   /** "Ya no me van a pagar más": cerrar un período con pagos solo a cuenta (pide confirmación). */
   onCerrarPeriodo?: (aviso: AvisoSinConciliar) => void
+  /** "Ya me lo pagaron" de una deuda: elegir qué se cobró. */
+  onYaMeLoPagaron?: (aviso: AvisoDeuda) => void
   onCompartirReclamo?: (lugarId: string) => void
 }
 
@@ -29,7 +42,9 @@ interface Contenido {
   acciones: ReactNode
 }
 
-function contenido({ aviso, lugar, onNoMePagaron, onCerrarPeriodo, onCompartirReclamo }: AvisoCardProps): Contenido | null {
+function contenido({
+  aviso, lugar, onNoMePagaron, onCerrarPeriodo, onYaMeLoPagaron, onCompartirReclamo,
+}: AvisoCardProps): Contenido | null {
   if (aviso.tipo === 'COPIA') {
     return {
       nivel: 'aviso',
@@ -69,6 +84,7 @@ function contenido({ aviso, lugar, onNoMePagaron, onCerrarPeriodo, onCompartirRe
 
   if (aviso.tipo === 'DEUDA') {
     const diferencias = aviso.deudasPlata.reduce((s, d) => s + d.monto, 0)
+    const desde = periodoMasAntiguo(lugar, aviso)
     return {
       nivel: 'alerta',
       titulo: `${lugar.nombre}: te deben ${pesosJuntos(aviso.monto)}`,
@@ -78,7 +94,10 @@ function contenido({ aviso, lugar, onNoMePagaron, onCerrarPeriodo, onCompartirRe
       ],
       acciones: (
         <>
-          <Link className="btn btn--secundario" to={`/lugares/${lugar.id}`}>
+          <Button variante="secundario" onClick={() => onYaMeLoPagaron?.(aviso)}>
+            Ya me lo pagaron
+          </Button>
+          <Link className="btn btn--secundario" to={`/lugares/${lugar.id}${desde ? `?periodo=${desde}` : ''}`}>
             Ver detalle
           </Link>
           <Button variante="secundario" onClick={() => onCompartirReclamo?.(lugar.id)}>

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { hoy, sumarDias, type FechaISO } from '../../../domain/dates'
 import { nombrePeriodo, periodoQueContiene, periodosEntre, type Periodo } from '../../../domain/periodos'
-import type { Lugar, Trabajo } from '../../../domain/types'
+import { resumenPeriodo } from '../../../domain/conciliacion'
+import type { Lugar, Pago, Trabajo } from '../../../domain/types'
 import Card from '../../components/Card'
 import { finDe, sumaMontos } from './utils'
 import { pesosJuntos } from '../../pesos'
@@ -9,12 +10,14 @@ import { pesosJuntos } from '../../pesos'
 interface SelectorPeriodoProps {
   lugar: Lugar
   trabajos: Trabajo[]
+  /** Para marcar en el Historial los períodos con deuda. */
+  pagos: Pago[]
   seleccionado: Periodo
   onElegir: (fin: FechaISO) => void
 }
 
 /** Los 2 períodos más recientes como pestañas y "Historial" con todos los demás desde el primer trabajo. */
-export default function SelectorPeriodo({ lugar, trabajos, seleccionado, onElegir }: SelectorPeriodoProps) {
+export default function SelectorPeriodo({ lugar, trabajos, pagos, seleccionado, onElegir }: SelectorPeriodoProps) {
   const [verHistorial, setVerHistorial] = useState(false)
   const reglas = lugar.reglasCierre
   const hoyISO = hoy()
@@ -55,17 +58,24 @@ export default function SelectorPeriodo({ lugar, trabajos, seleccionado, onElegi
         </button>
       </div>
       {!enPestana && !verHistorial && <p className="periodo-elegido muted">Período {nombrePeriodo(seleccionado)}</p>}
-      {verHistorial && <Historial lugar={lugar} trabajos={trabajos} seleccionado={seleccionado} hoyISO={hoyISO} onElegir={elegir} />}
+      {verHistorial && (
+        <Historial lugar={lugar} trabajos={trabajos} pagos={pagos} seleccionado={seleccionado} hoyISO={hoyISO} onElegir={elegir} />
+      )}
     </>
   )
 }
 
 function Historial({
-  lugar, trabajos, seleccionado, hoyISO, onElegir,
+  lugar, trabajos, pagos, seleccionado, hoyISO, onElegir,
 }: Omit<SelectorPeriodoProps, 'onElegir'> & { hoyISO: FechaISO; onElegir: (fin: FechaISO) => void }) {
   const primera = trabajos.reduce<FechaISO>((m, tr) => (tr.fecha < m ? tr.fecha : m), hoyISO)
   const periodos = periodosEntre(lugar.reglasCierre, primera, hoyISO)
   const total = (p: Periodo) => sumaMontos(trabajos.filter((tr) => finDe(lugar, tr) === p.fin))
+  /** Lo que le deben del período: trabajos sin pagar y diferencia en plata. */
+  const deuda = (p: Periodo) => {
+    const r = resumenPeriodo(lugar, p, trabajos, pagos)
+    return sumaMontos(r.noPagados) + r.deudaPlata
+  }
   return (
     <Card flush as="ul" className="lista historial" aria-label="Historial de períodos">
       {periodos.map((p) => (
@@ -76,7 +86,10 @@ function Historial({
             aria-current={seleccionado.fin === p.fin ? 'true' : undefined}
             onClick={() => onElegir(p.fin)}
           >
-            <span>{nombrePeriodo(p)}</span>
+            <span className="historial__periodo">
+              {nombrePeriodo(p)}
+              {deuda(p) > 0 && <small className="historial__deuda">{`Te deben ${pesosJuntos(deuda(p))}`}</small>}
+            </span>
             <strong>{pesosJuntos(total(p))}</strong>
           </button>
         </li>

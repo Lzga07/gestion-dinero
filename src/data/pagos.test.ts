@@ -3,7 +3,7 @@ import { db } from './db';
 import { resumenPeriodo } from '../domain/conciliacion';
 import { periodoQueContiene } from '../domain/periodos';
 import {
-  borrarPago, cerrarPeriodo, marcarNoPagado, noMePagaron, registrarPago, saldarDiferencia, volverAPendiente, yaMeLoPagaron,
+  borrarPago, cerrarPeriodo, cobrarDeuda, marcarNoPagado, noMePagaron, registrarPago, saldarDiferencia, volverAPendiente, yaMeLoPagaron,
 } from './pagos';
 import { anotarTrabajo, lugarFijo, reiniciarDb } from './test-helpers';
 
@@ -230,4 +230,49 @@ test('volverAPendiente pasa un NO_PAGADO a PENDIENTE y no toca otros estados', a
   await volverAPendiente(a); // PAGADO: no cambia
   expect(await db.trabajos.get(a)).toEqual(antes);
   await volverAPendiente('no-existe'); // no lanza
+});
+
+test('cobrarDeuda: un pago FINAL por período con lo elegido; los trabajos quedan PAGADO y la diferencia se salda', async () => {
+  const lugarId = await lugarFijo();
+  const sep1 = await anotarTrabajo(lugarId, '2026-09-05', 10000);
+  const sep2 = await anotarTrabajo(lugarId, '2026-09-06', 5000);
+  const sep3 = await anotarTrabajo(lugarId, '2026-09-07', 4000);
+  const oct1 = await anotarTrabajo(lugarId, '2026-10-05', 3000);
+  // Septiembre: pago final de 3.000 por sep3 (4.000) → 1.000 de diferencia en plata; sep1 y sep2 quedan sin pagar.
+  await registrarPago({ lugarId, periodoFin: '2026-09-30', fecha: '2026-10-25', monto: 3000, tipo: 'FINAL', nota: '', tildados: [sep3], destildados: [sep1, sep2] });
+  await registrarPago({ lugarId, periodoFin: '2026-10-31', fecha: '2026-11-25', monto: 0, tipo: 'FINAL', nota: '', tildados: [], destildados: [oct1] });
+
+  const ids = await cobrarDeuda(lugarId, '2026-11-28', {
+    trabajos: [sep1, oct1],
+    diferencias: [{ periodoFin: '2026-09-30', monto: 1000 }],
+  });
+
+  expect(ids).toHaveLength(2);
+  const nuevos = await db.pagos.bulkGet(ids);
+  expect(nuevos).toEqual(expect.arrayContaining([
+    expect.objectContaining({ periodoFin: '2026-09-30', fecha: '2026-11-28', monto: 11000, tipo: 'FINAL' }),
+    expect.objectContaining({ periodoFin: '2026-10-31', fecha: '2026-11-28', monto: 3000, tipo: 'FINAL' }),
+  ]));
+  const sep = nuevos.find(p => p!.periodoFin === '2026-09-30')!;
+  expect(await db.trabajos.get(sep1)).toMatchObject({ estado: 'PAGADO', pagoId: sep.id });
+  expect(await db.trabajos.get(sep2)).toMatchObject({ estado: 'NO_PAGADO' });
+  const lugar = (await db.lugares.get(lugarId))!;
+  const r = resumenPeriodo(lugar, periodoQueContiene(lugar.reglasCierre, '2026-09-05'), await db.trabajos.toArray(), await db.pagos.toArray());
+  expect(r.deudaPlata).toBe(0);
+  expect(r.noPagados.map(t => t.id)).toEqual([sep2]);
+});
+
+test('cobrarDeuda rechaza un trabajo de otro lugar o que no está sin pagar, sin escribir nada', async () => {
+  const lugarId = await lugarFijo();
+  const otro = await lugarFijo('ULTIMO', 'Otro');
+  const a = await anotarTrabajo(lugarId, '2026-10-05');
+  const b = await anotarTrabajo(otro, '2026-10-05');
+  await marcarNoPagado(a);
+  await marcarNoPagado(b);
+  const pendiente = await anotarTrabajo(lugarId, '2026-10-06');
+
+  await expect(cobrarDeuda(lugarId, '2026-11-28', { trabajos: [a, b], diferencias: [] })).rejects.toMatchObject({ codigo: 'TRABAJO_INEXISTENTE' });
+  await expect(cobrarDeuda(lugarId, '2026-11-28', { trabajos: [a, pendiente], diferencias: [] })).rejects.toMatchObject({ codigo: 'TRABAJO_INEXISTENTE' });
+  expect(await db.pagos.count()).toBe(0);
+  expect(await db.trabajos.get(a)).toMatchObject({ estado: 'NO_PAGADO', pagoId: null });
 });

@@ -174,8 +174,76 @@ describe('avisos', () => {
     expect(await screen.findByText('Clínica Centro: te deben $ 58.000')).toBeInTheDocument()
     expect(screen.getByText('1 trabajo sin pagar')).toBeInTheDocument()
     expect(screen.getByText('Diferencias en pagos: $ 13.000')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ver detalle' })).toHaveAttribute('href', `/lugares/${lugarId}`)
+    expect(screen.getByRole('link', { name: 'Ver detalle' })).toHaveAttribute('href', `/lugares/${lugarId}?periodo=2026-09-30`)
     expect(screen.getByRole('button', { name: 'Compartir reclamo' })).toBeEnabled()
+  })
+
+  test('"Ver detalle" abre el período más antiguo con deuda', async () => {
+    const lugarId = await lugarFijo()
+    await copiaAlDia()
+    const agosto = await anotar(lugarId, '2026-08-10', 'Conducto', 60000)
+    const t = await septiembre(lugarId)
+    await anotar(lugarId, '2026-10-05', 'Limpieza', 25000)
+    await datosPagos.marcarNoPagado(t.corona)
+    await datosPagos.marcarNoPagado(agosto)
+    renderInicio()
+
+    expect(await screen.findByRole('link', { name: 'Ver detalle' })).toHaveAttribute('href', `/lugares/${lugarId}?periodo=2026-08-31`)
+  })
+
+  test('"Ya me lo pagaron" en la deuda deja elegir qué te pagaron y lo registra', async () => {
+    const lugarId = await lugarFijo()
+    await copiaAlDia()
+    const agosto = await anotar(lugarId, '2026-08-10', 'Conducto', 60000)
+    await datosPagos.marcarNoPagado(agosto)
+    const t = await septiembre(lugarId)
+    await registrarPago({
+      lugarId, periodoFin: '2026-09-30', fecha: '2026-10-25', monto: 8000000, tipo: 'FINAL', nota: '',
+      tildados: [t.arreglo, t.limpieza, t.extraccion], destildados: [t.corona],
+    })
+    const user = renderInicio()
+
+    // conducto 60.000 + corona 45.000 + diferencia 13.000
+    expect(await screen.findByText('Clínica Centro: te deben $ 118.000')).toBeInTheDocument()
+    await user.click(within(avisos()).getByRole('button', { name: 'Ya me lo pagaron' }))
+    const dialogo = screen.getByRole('dialog', { name: 'Ya me lo pagaron' })
+    const opciones = within(dialogo).getAllByRole('checkbox')
+    expect(opciones).toHaveLength(3)
+    expect(opciones.every((o) => !(o as HTMLInputElement).checked)).toBe(true)
+    expect(within(dialogo).getByLabelText(/10 ago · Conducto/)).toBeInTheDocument()
+    expect(within(dialogo).getByLabelText(/26 sep · Corona/)).toBeInTheDocument()
+    expect(within(dialogo).getByLabelText(/Diferencia en pago de 1 – 30 sep/)).toBeInTheDocument()
+    expect(within(dialogo).getByLabelText('Fecha del pago')).toHaveValue('2026-10-27')
+
+    // sin elegir nada no guarda
+    await user.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
+    expect(await within(dialogo).findByText('Elegí lo que te pagaron')).toBeInTheDocument()
+    expect(await db.pagos.count()).toBe(1)
+
+    await user.click(within(dialogo).getByLabelText(/26 sep · Corona/))
+    await user.click(within(dialogo).getByLabelText(/Diferencia en pago de 1 – 30 sep/))
+    expect(within(dialogo).getByText('Total: $ 58.000')).toBeInTheDocument()
+    await user.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByText('Clínica Centro: te deben $ 60.000')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await db.trabajos.get(t.corona)).toMatchObject({ estado: 'PAGADO' })
+    expect(await db.trabajos.get(agosto)).toMatchObject({ estado: 'NO_PAGADO' })
+    expect((await db.pagos.toArray()).find((p) => p.fecha === '2026-10-27')).toMatchObject({ monto: 5800000, periodoFin: '2026-09-30' })
+  })
+
+  test('con una sola cosa en la deuda, "Ya me lo pagaron" ya la trae elegida', async () => {
+    const lugarId = await lugarFijo()
+    await copiaAlDia()
+    const t = await septiembre(lugarId)
+    await datosPagos.marcarNoPagado(t.corona)
+    const user = renderInicio()
+
+    await user.click(await within(await screen.findByRole('region', { name: 'Avisos' })).findByRole('button', { name: 'Ya me lo pagaron' }))
+    const dialogo = screen.getByRole('dialog', { name: 'Ya me lo pagaron' })
+    expect(within(dialogo).getByLabelText(/26 sep · Corona/)).toBeChecked()
+    await user.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
+    expect(await db.trabajos.get(t.corona)).toMatchObject({ estado: 'PAGADO' })
   })
 
   test('trabajos sin conciliar lleva a revisar el período', async () => {
@@ -278,7 +346,7 @@ describe('lugares archivados', () => {
     renderInicio()
 
     expect(await screen.findByText('Consultorio Viejo: te deben $ 45.000')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ver detalle' })).toHaveAttribute('href', `/lugares/${viejo}`)
+    expect(screen.getByRole('link', { name: 'Ver detalle' })).toHaveAttribute('href', `/lugares/${viejo}?periodo=2026-09-30`)
     expect(screen.getByRole('link', { name: /Consultorio Sur/ })).toHaveAttribute('href', `/lugares/${activo}`)
     expect(within(screen.getByRole('heading', { name: 'Por lugar' }).parentElement!).queryByRole('link', { name: /Consultorio Viejo/ })).not.toBeInTheDocument()
   })

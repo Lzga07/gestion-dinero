@@ -92,6 +92,47 @@ export async function yaMeLoPagaron(trabajoId: string, fecha: FechaISO, monto: C
   });
 }
 
+/**
+ * "Ya me lo pagaron" desde el aviso de deuda: lo elegido (trabajos NO_PAGADO del lugar, de cualquier período,
+ * y diferencias en plata) se registra con un pago FINAL adicional por período, por lo que valía cada cosa, en
+ * una transacción. Los trabajos quedan PAGADO en el pago de su período. Devuelve los ids de los pagos.
+ */
+export async function cobrarDeuda(
+  lugarId: string,
+  fecha: FechaISO,
+  elegidos: { trabajos: string[]; diferencias: { periodoFin: FechaISO; monto: Centavos }[] },
+): Promise<string[]> {
+  return db.transaction('rw', db.pagos, db.trabajos, db.lugares, async () => {
+    const lugar = await db.lugares.get(lugarId);
+    if (!lugar) throw new ErrorDatos('LUGAR_INEXISTENTE');
+    const trabajos = await db.trabajos.bulkGet(elegidos.trabajos);
+    if (trabajos.some(tr => !tr || tr.lugarId !== lugarId || tr.estado !== 'NO_PAGADO')) {
+      throw new ErrorDatos('TRABAJO_INEXISTENTE');
+    }
+    const porPeriodo = new Map<FechaISO, { monto: Centavos; trabajos: string[] }>();
+    const grupo = (fin: FechaISO) => {
+      const g = porPeriodo.get(fin) ?? { monto: 0, trabajos: [] };
+      porPeriodo.set(fin, g);
+      return g;
+    };
+    for (const tr of trabajos) {
+      const g = grupo(periodoQueContiene(lugar.reglasCierre, tr!.fecha).fin);
+      g.monto += tr!.monto;
+      g.trabajos.push(tr!.id);
+    }
+    for (const d of elegidos.diferencias) grupo(d.periodoFin).monto += d.monto;
+
+    const ids: string[] = [];
+    for (const [periodoFin, g] of porPeriodo) {
+      const pago: Pago = { id: nuevoId(), tipo: 'FINAL', lugarId, periodoFin, fecha, monto: g.monto, nota: '', creadoEn: ahoraISO() };
+      await db.pagos.add(pago);
+      for (const id of g.trabajos) await db.trabajos.update(id, { estado: 'PAGADO', pagoId: pago.id });
+      ids.push(pago.id);
+    }
+    return ids;
+  });
+}
+
 /** Pago FINAL sin trabajos: salda una diferencia en plata de un período. */
 export async function saldarDiferencia(lugarId: string, periodoFin: FechaISO, fecha: FechaISO, monto: Centavos): Promise<string> {
   const pago: Pago = { id: nuevoId(), tipo: 'FINAL', lugarId, periodoFin, fecha, monto, nota: '', creadoEn: ahoraISO() };

@@ -153,6 +153,27 @@ describe('período del lugar', () => {
     expect(screen.getByRole('button', { name: 'Historial' })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  test('Historial marca los períodos con deuda', async () => {
+    const lugarId = await lugarFijo()
+    await octubre(lugarId)
+    const t = await septiembre(lugarId)
+    const a = await anotar(lugarId, '2026-08-20', 'Conducto', 60000)
+    const b = await anotar(lugarId, '2026-08-21', 'Arreglo', 40000)
+    await marcarNoPagado(t.corona)
+    // agosto: pago final de 90.000 por 100.000 → 10.000 de diferencia en plata
+    await registrarPago({
+      lugarId, periodoFin: '2026-08-31', fecha: '2026-09-25', monto: 9000000, tipo: 'FINAL', nota: '',
+      tildados: [a, b], destildados: [],
+    })
+    const user = renderEn(`/lugares/${lugarId}`)
+
+    await user.click(await screen.findByRole('button', { name: 'Historial' }))
+    const items = within(screen.getByRole('list', { name: 'Historial de períodos' })).getAllByRole('listitem')
+    expect(items[0]).not.toHaveTextContent('Te deben')
+    expect(items[1]).toHaveTextContent('Te deben $ 45.000')
+    expect(items[2]).toHaveTextContent('Te deben $ 10.000')
+  })
+
   test('muestra "Parte de un pago se aplicó a trabajos de otros meses." cuando lo cobrado es negativo', async () => {
     const lugarId = await lugarFijo()
     const t = await septiembre(lugarId)

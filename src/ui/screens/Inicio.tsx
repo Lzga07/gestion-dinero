@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { leerAjuste } from '../../data/ajustes'
 import { db } from '../../data/db'
-import { cerrarPeriodo, noMePagaron } from '../../data/pagos'
+import { cerrarPeriodo, cobrarDeuda, noMePagaron } from '../../data/pagos'
 import { calcularAvisos, type Aviso } from '../../domain/avisos'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { formatFechaCorta, mesClave, nombreMes, type FechaISO } from '../../domain/dates'
@@ -13,10 +13,11 @@ import { datosReclamo } from '../../pdf/reclamo'
 import type { DatosListado } from '../../pdf/listado'
 import { resumenMes } from '../../domain/totales'
 import type { Lugar, Movimiento, Pago, Trabajo } from '../../domain/types'
-import AvisoCard from '../components/AvisoCard'
+import AvisoCard, { type AvisoDeuda } from '../components/AvisoCard'
 import Card from '../components/Card'
 import ConfirmDialog from '../components/ConfirmDialog'
 import DialogCompartir from '../components/DialogCompartir'
+import DialogoCobrarDeuda from '../components/DialogoCobrarDeuda'
 import { useHoy } from '../hooks/useHoy'
 import { plural, textoCerrarPeriodo, tituloCerrarPeriodo } from './periodo/utils'
 import { pesosJuntos } from '../pesos'
@@ -63,6 +64,7 @@ export default function Inicio() {
 function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
   const [confirmando, setConfirmando] = useState<Confirmacion | null>(null)
   const [reclamo, setReclamo] = useState<Omit<DatosListado, 'incluirNotas'> | null>(null)
+  const [cobrando, setCobrando] = useState<AvisoDeuda | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ocupado = useRef(false)
 
@@ -145,6 +147,7 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
                   })
                 }
               }}
+              onYaMeLoPagaron={setCobrando}
               onCompartirReclamo={(lugarId) => {
                 const lugar = lugarDe(lugarId)
                 const deuda = avisos.find((x) => x.tipo === 'DEUDA' && x.lugarId === lugarId)
@@ -197,6 +200,18 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
       )}
 
       {reclamo && <DialogCompartir datos={reclamo} onCerrar={() => setReclamo(null)} />}
+
+      {cobrando && (
+        <DialogoCobrarDeuda
+          noPagados={cobrando.noPagados}
+          diferencias={cobrando.deudasPlata}
+          onCancel={() => setCobrando(null)}
+          onGuardar={async (fecha, trabajosIds, diferencias) => {
+            await cobrarDeuda(cobrando.lugarId, fecha, { trabajos: trabajosIds, diferencias })
+            setCobrando(null)
+          }}
+        />
+      )}
 
       {confirmando?.tipo === 'no-me-pagaron' && (
         <ConfirmDialog
