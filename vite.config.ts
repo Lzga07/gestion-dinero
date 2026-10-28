@@ -34,5 +34,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // Los runners de CI son más lentos: varios tests de pantalla con user-event pasan los 5 s por defecto.
+    testTimeout: 15000,
   },
 })
