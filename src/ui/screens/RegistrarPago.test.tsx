@@ -69,7 +69,9 @@ describe('registrar pago', () => {
     await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '93.000')
     await user.click(screen.getByRole('checkbox', { name: /Corona/ }))
 
-    expect(screen.getByText('Esperabas $ 93.000 · te pagaron $ 93.000')).toBeInTheDocument()
+    // lo esperado es todo el período, tildado o no; la Corona destildada aparece en "Falta"
+    expect(screen.getByText('Esperabas $ 138.000 · te pagaron $ 93.000')).toBeInTheDocument()
+    expect(screen.queryByText(/de más|menos de lo esperado/)).not.toBeInTheDocument()
     expect(screen.getByText('Falta: 1 trabajo, $ 45.000')).toBeInTheDocument()
 
     await user.click(guardarPago())
@@ -103,6 +105,48 @@ describe('registrar pago', () => {
     expect(await screen.findByRole('button', { name: '1 – 30 sep' })).toHaveAttribute('aria-pressed', 'true')
     expect((await db.pagos.toArray())[0]).toMatchObject({ tipo: 'A_CUENTA', monto: 9300000 })
     expect(await db.trabajos.get(t.corona)).toMatchObject({ estado: 'PENDIENTE', pagoId: null })
+  })
+
+  describe('saldo en plata de un pago a cuenta', () => {
+    async function septiembreConACuenta() {
+      const lugarId = await lugarFijo()
+      const t = await septiembre(lugarId)
+      await datosPagos.registrarPago({
+        lugarId, periodoFin: '2026-09-30', fecha: '2026-10-20', monto: 13000000, tipo: 'A_CUENTA', nota: '',
+        tildados: Object.values(t), destildados: [],
+      })
+      const user = renderEn(`/lugares/${lugarId}/pago?periodo=2026-09-30`)
+      await screen.findByRole('heading', { name: 'Pago · Clínica Centro' })
+      return user
+    }
+
+    test('lo que falta en plata se ofrece como esperado y saldarlo guarda FINAL sin preguntar', async () => {
+      const user = await septiembreConACuenta()
+      expect(screen.getByText('Esperabas $ 8.000')).toBeInTheDocument()
+      expect(screen.getByText('Saldo pendiente del período: $ 8.000')).toBeInTheDocument()
+
+      await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '8.000')
+      expect(screen.queryByText(/de más/)).not.toBeInTheDocument()
+      await user.click(guardarPago())
+
+      expect(await screen.findByRole('button', { name: '1 – 30 sep' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      const pagos = await db.pagos.toArray()
+      expect(pagos).toHaveLength(2)
+      expect(pagos.find((p) => p.tipo === 'FINAL')).toMatchObject({ monto: 800000, periodoFin: '2026-09-30' })
+      const resumen = screen.getByRole('region', { name: 'Resumen del período' })
+      expect(within(resumen).getByText('Falta cobrar').parentElement).toHaveTextContent('$ 0')
+      expect(screen.queryByText(/^Diferencia en pago/)).not.toBeInTheDocument()
+    })
+
+    test('recibir menos que el saldo pregunta si es a cuenta o final', async () => {
+      const user = await septiembreConACuenta()
+      await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '5.000')
+      expect(screen.getByText('Te pagaron $ 3.000 menos de lo esperado')).toBeInTheDocument()
+      await user.click(guardarPago())
+      expect(await screen.findByRole('dialog')).toBeInTheDocument()
+      expect(await db.pagos.count()).toBe(1)
+    })
   })
 
   test('recibir menos de lo esperado también pregunta, aunque estén todos tildados', async () => {

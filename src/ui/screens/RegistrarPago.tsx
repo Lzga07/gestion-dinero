@@ -1,11 +1,11 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { registrarPago } from '../../data/pagos'
-import { requierePregunta, trabajosOfrecidosParaPago } from '../../domain/conciliacion'
+import { requierePregunta, resumenPeriodo, trabajosOfrecidosParaPago } from '../../domain/conciliacion'
 import { hoy } from '../../domain/dates'
 import { formatPesos, type Centavos } from '../../domain/money'
 import { nombrePeriodo, type Periodo } from '../../domain/periodos'
-import type { Lugar, TipoPago, Trabajo } from '../../domain/types'
+import type { Lugar, Pago, TipoPago, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -34,10 +34,10 @@ export default function RegistrarPago() {
     )
   }
   const periodo = periodoPedido(datos.lugar, params.get('periodo'), hoy())
-  return <Formulario key={`${datos.lugar.id}${periodo.fin}`} lugar={datos.lugar} trabajos={datos.trabajos} periodo={periodo} />
+  return <Formulario key={`${datos.lugar.id}${periodo.fin}`} lugar={datos.lugar} trabajos={datos.trabajos} pagos={datos.pagos} periodo={periodo} />
 }
 
-function Formulario({ lugar, trabajos, periodo }: { lugar: Lugar; trabajos: Trabajo[]; periodo: Periodo }) {
+function Formulario({ lugar, trabajos, pagos, periodo }: { lugar: Lugar; trabajos: Trabajo[]; pagos: Pago[]; periodo: Periodo }) {
   const navigate = useNavigate()
   const volver = useVolver(`/lugares/${lugar.id}`)
   const guardandoRef = useRef(false)
@@ -45,7 +45,13 @@ function Formulario({ lugar, trabajos, periodo }: { lugar: Lugar; trabajos: Trab
   // Lo que se ofrece queda fijo al abrir: al guardar los trabajos cambian de estado y la lista no debe saltar.
   const [ofrecidos] = useState(() => {
     const o = trabajosOfrecidosParaPago(lugar, periodo.fin, trabajos)
-    return { delPeriodo: ordenarTrabajos(o.delPeriodo), anteriores: o.anteriores.map((g) => ({ ...g, trabajos: ordenarTrabajos(g.trabajos) })) }
+    // Plata que el período todavía debe y no está atada a ningún trabajo (p. ej. lo que faltó de un pago a cuenta).
+    const saldoPlata = Math.max(0, resumenPeriodo(lugar, periodo, trabajos, pagos).faltaCobrar - sumaMontos(o.delPeriodo))
+    return {
+      delPeriodo: ordenarTrabajos(o.delPeriodo),
+      anteriores: o.anteriores.map((g) => ({ ...g, trabajos: ordenarTrabajos(g.trabajos) })),
+      saldoPlata,
+    }
   })
   const [tildados, setTildados] = useState(() => new Set(ofrecidos.delPeriodo.map((tr) => tr.id)))
   const [monto, setMonto] = useState<Centavos | null>(null)
@@ -58,7 +64,13 @@ function Formulario({ lugar, trabajos, periodo }: { lugar: Lugar; trabajos: Trab
   const [error, setError] = useState<string | null>(null)
 
   const todos = [...ofrecidos.delPeriodo, ...ofrecidos.anteriores.flatMap((g) => g.trabajos)]
-  const esperado = sumaMontos(todos.filter((tr) => tildados.has(tr.id)))
+  const { saldoPlata } = ofrecidos
+  const sumaTildados = sumaMontos(todos.filter((tr) => tildados.has(tr.id)))
+  /** Con lo que se compara lo recibido: lo tildado más el saldo en plata del período. */
+  const esperadoPregunta = sumaTildados + saldoPlata
+  /** Lo que se muestra como "Esperabas": todo lo del período (tildado o no), lo atrasado tildado y el saldo. */
+  const tildadosAnteriores = sumaMontos(ofrecidos.anteriores.flatMap((g) => g.trabajos).filter((tr) => tildados.has(tr.id)))
+  const esperado = sumaMontos(ofrecidos.delPeriodo) + tildadosAnteriores + saldoPlata
   const sinTildar = ofrecidos.delPeriodo.filter((tr) => !tildados.has(tr.id))
   const recibido = monto !== null && monto > 0 ? monto : null
 
@@ -82,7 +94,7 @@ function Formulario({ lugar, trabajos, periodo }: { lugar: Lugar; trabajos: Trab
       setIntentado(true)
       return
     }
-    if (requierePregunta(esperado, recibido, sinTildar.length)) setPregunta(true)
+    if (requierePregunta(esperadoPregunta, recibido, sinTildar.length)) setPregunta(true)
     else void guardar('FINAL')
   }
 
@@ -111,7 +123,7 @@ function Formulario({ lugar, trabajos, periodo }: { lugar: Lugar; trabajos: Trab
     }
   }
 
-  const diferencia = recibido === null ? 0 : recibido - esperado
+  const diferencia = recibido === null ? 0 : recibido - esperadoPregunta
 
   return (
     <section>
@@ -163,6 +175,8 @@ function Formulario({ lugar, trabajos, periodo }: { lugar: Lugar; trabajos: Trab
             ))}
           </fieldset>
         )}
+
+        {saldoPlata > 0 && <p className="saldo-pendiente">{`Saldo pendiente del período: ${formatPesos(saldoPlata)}`}</p>}
 
         <div className={`diferencia-viva${recibido !== null && diferencia === 0 && sinTildar.length === 0 ? ' diferencia-viva--ok' : ''}`} aria-live="polite">
           <p>{recibido === null ? `Esperabas ${formatPesos(esperado)}` : `Esperabas ${formatPesos(esperado)} · te pagaron ${formatPesos(recibido)}`}</p>

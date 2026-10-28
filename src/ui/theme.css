@@ -929,3 +929,10 @@ a.screen-header__back {
 .dialog__campos .field:last-child {
   margin-bottom: 0;
 }
+
+.saldo-pendiente {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--neg);
+}
