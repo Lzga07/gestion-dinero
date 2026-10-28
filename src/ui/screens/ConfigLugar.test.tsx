@@ -260,6 +260,44 @@ describe('lugar existente', () => {
     expect(await db.tiposTrabajo.toArray()).toMatchObject([{ nombre: 'Arreglo' }])
   })
 
+  test('una fila con nombre vacío y precio inválido bloquea el guardado y no borra el tipo guardado', async () => {
+    const id = await lugarFijo()
+    await guardarTipoTrabajo({ lugarId: id, nombre: 'Limpieza', precio: 2500000, orden: 0 })
+    const arreglo = await guardarTipoTrabajo({ lugarId: id, nombre: 'Arreglo', precio: 3800000, orden: 1 })
+    const user = renderEn(`/lugares/${id}/config`)
+    const nombres = await screen.findAllByLabelText('Trabajo')
+    const precios = screen.getAllByLabelText('Precio')
+    await user.clear(nombres[1])
+    await user.clear(precios[1])
+    await user.type(precios[1], 'abc')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByText('Completá el nombre y un precio mayor a 0')).toBeInTheDocument()
+    expect(screen.getByText('Monto inválido. Usá coma para los decimales (ej: 1.234,50)')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Lugares' })).not.toBeInTheDocument()
+    expect(await db.tiposTrabajo.get(arreglo)).toMatchObject({ nombre: 'Arreglo', precio: 3800000 })
+    expect(await db.tiposTrabajo.count()).toBe(2)
+  })
+
+  test('si falla el guardado muestra el error y reintentar no duplica el lugar', async () => {
+    const user = renderEn('/lugares/nuevo')
+    await user.type(screen.getByLabelText('Nombre'), 'Clínica Norte')
+    await user.click(screen.getByRole('button', { name: '+ Agregar trabajo' }))
+    await user.type(screen.getByLabelText('Trabajo'), 'Limpieza')
+    await user.type(screen.getByLabelText('Precio'), '25.000')
+    const espia = vi.spyOn(db.tiposTrabajo, 'put').mockRejectedValueOnce(new Error('falla'))
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByText('No se pudo guardar. Probá de nuevo.')).toBeInTheDocument()
+    expect(await db.lugares.count()).toBe(0)
+    espia.mockRestore()
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByRole('heading', { name: 'Lugares' })).toBeInTheDocument()
+    expect(await db.lugares.count()).toBe(1)
+    expect(await db.tiposTrabajo.count()).toBe(1)
+  })
+
   test('un lugar inexistente muestra un aviso', async () => {
     renderEn('/lugares/no-existe/config')
     expect(await screen.findByText('No encontramos este lugar.')).toBeInTheDocument()

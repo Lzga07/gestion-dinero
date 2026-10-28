@@ -5,6 +5,8 @@ import Field from './Field'
 interface MoneyInputProps {
   value: Centavos | null
   onChange: (valor: Centavos | null) => void
+  /** Avisa si el texto tipeado no está vacío pero no se pudo interpretar (en ese caso onChange da null). */
+  onInvalidChange?: (invalido: boolean) => void
   label: string
   error?: string | null
   hint?: string
@@ -17,7 +19,15 @@ export const ERROR_MONTO = 'Monto inválido. Usá coma para los decimales (ej: 1
  * Campo de pesos. Mientras se tipea avisa `onChange` con los centavos (o null si está vacío o es
  * inválido); al salir del campo reformatea con `formatPesos` y marca el texto inválido.
  */
-export default function MoneyInput({ value, onChange, label, error, hint, placeholder }: MoneyInputProps) {
+export default function MoneyInput({
+  value,
+  onChange,
+  onInvalidChange,
+  label,
+  error,
+  hint,
+  placeholder,
+}: MoneyInputProps) {
   const [texto, setTexto] = useState(() => (value === null ? '' : formatPesos(value)))
   const [tocado, setTocado] = useState(false)
 
@@ -44,7 +54,9 @@ export default function MoneyInput({ value, onChange, label, error, hint, placeh
           value={texto}
           onChange={(e) => {
             setTexto(e.target.value)
-            onChange(parsePesos(e.target.value))
+            const c = parsePesos(e.target.value)
+            onChange(c)
+            onInvalidChange?.(c === null && e.target.value.trim() !== '')
           }}
           onBlur={() => {
             setTocado(true)

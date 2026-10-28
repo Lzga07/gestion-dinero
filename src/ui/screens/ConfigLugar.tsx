@@ -3,14 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { db } from '../../data/db'
 import { ErrorDatos } from '../../data/errores'
-import {
-  actualizarLugar,
-  archivarLugar,
-  borrarLugar,
-  borrarTipoTrabajo,
-  crearLugar,
-  guardarTipoTrabajo,
-} from '../../data/lugares'
+import { archivarLugar, borrarLugar, guardarLugarConTipos } from '../../data/lugares'
 import { formatFechaCorta, hoy } from '../../domain/dates'
 import { formatPorcentaje, parsePorcentaje, type Centavos } from '../../domain/money'
 import { periodoQueContiene, type DiaCierre } from '../../domain/periodos'
@@ -39,6 +32,8 @@ interface FilaTrabajo {
   id?: string
   nombre: string
   precio: Centavos | null
+  /** El texto del precio no se pudo interpretar: la fila cuenta como cargada (y con error). */
+  precioInvalido?: boolean
 }
 
 interface Datos {
@@ -147,10 +142,10 @@ function Formulario({ datos }: { datos: Datos | null }) {
   } else if (desde > hasta) {
     errPago = 'El primer día no puede ser mayor que el último.'
   }
-  const filasCargadas = filas.filter((f) => f.nombre.trim() !== '' || f.precio !== null)
+  const filasCargadas = filas.filter((f) => f.nombre.trim() !== '' || f.precio !== null || f.precioInvalido)
   const filaCompleta = (f: FilaTrabajo) => f.nombre.trim() !== '' && f.precio !== null && f.precio > 0
   const errFila = (f: FilaTrabajo) =>
-    f.nombre.trim() === '' && f.precio === null
+    f.nombre.trim() === '' && f.precio === null && !f.precioInvalido
       ? null
       : filaCompleta(f)
         ? null
@@ -189,28 +184,24 @@ function Formulario({ datos }: { datos: Datos | null }) {
     }
     setGuardando(true)
     try {
-      const comun = {
-        nombre: nombre.trim(),
-        formaCobro,
-        porcentajeBp: esPorcentaje ? bp : null,
-        pagoDesdeDia: desde as number,
-        pagoHastaDia: hasta as number,
-      }
-      let lugarId: string
-      if (lugar) {
-        lugarId = lugar.id
-        await actualizarLugar(lugarId, { ...comun, diaCierre: parseDiaCierre(diaCierre) }, hoy())
-      } else {
-        lugarId = await crearLugar({ ...comun, diaCierre: parseDiaCierre(diaCierre) })
-      }
-      if (!esPorcentaje) {
-        const completas = filas.filter(filaCompleta)
-        const quedan = new Set(completas.map((f) => f.id))
-        for (const t of datos?.tipos ?? []) if (!quedan.has(t.id)) await borrarTipoTrabajo(t.id)
-        for (const [orden, f] of completas.entries()) {
-          await guardarTipoTrabajo({ id: f.id, lugarId, nombre: f.nombre.trim(), precio: f.precio as Centavos, orden })
-        }
-      }
+      // Un solo guardado transaccional: lugar y lista de precios entran juntos o no entra nada.
+      await guardarLugarConTipos({
+        id: lugar?.id,
+        hoy: hoy(),
+        datos: {
+          nombre: nombre.trim(),
+          formaCobro,
+          porcentajeBp: esPorcentaje ? bp : null,
+          pagoDesdeDia: desde as number,
+          pagoHastaDia: hasta as number,
+          diaCierre: parseDiaCierre(diaCierre),
+        },
+        tipos: esPorcentaje
+          ? null
+          : filas
+              .filter(filaCompleta)
+              .map((f) => ({ id: f.id, nombre: f.nombre.trim(), precio: f.precio as Centavos })),
+      })
       const cambioPago = !!lugar && (lugar.pagoDesdeDia !== desde || lugar.pagoHastaDia !== hasta)
       if (cambioPago) setDialogo('calendario')
       else navigate('/lugares')
@@ -319,6 +310,7 @@ function Formulario({ datos }: { datos: Datos | null }) {
                       label="Precio"
                       value={f.precio}
                       onChange={(precio) => actualizarFila(f.clave, { precio })}
+                      onInvalidChange={(precioInvalido) => actualizarFila(f.clave, { precioInvalido })}
                     />
                   </div>
                   <Button

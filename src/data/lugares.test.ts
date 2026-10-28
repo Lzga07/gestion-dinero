@@ -1,9 +1,9 @@
-import { beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { INICIO_DE_LOS_TIEMPOS, periodoQueContiene } from '../domain/periodos';
 import { db } from './db';
 import { ErrorDatos } from './errores';
 import {
-  actualizarLugar, archivarLugar, borrarLugar, borrarTipoTrabajo, crearLugar, guardarTipoTrabajo,
+  actualizarLugar, archivarLugar, borrarLugar, borrarTipoTrabajo, crearLugar, guardarLugarConTipos, guardarTipoTrabajo,
 } from './lugares';
 import { registrarPago, saldarDiferencia } from './pagos';
 import { anotarTrabajo, lugarFijo, reiniciarDb } from './test-helpers';
@@ -125,4 +125,70 @@ test('tipos de trabajo: alta, edición y borrado sin tocar trabajos existentes',
   await borrarTipoTrabajo(tipoId);
   expect(await db.tiposTrabajo.count()).toBe(0);
   expect((await db.trabajos.get(trabajoId))!.precioLista).toBe(5000);
+});
+
+const DATOS = {
+  nombre: 'Clínica Norte', formaCobro: 'ARANCEL_FIJO' as const, porcentajeBp: null,
+  pagoDesdeDia: 1, pagoHastaDia: 10, diaCierre: 'ULTIMO' as const,
+};
+
+test('guardarLugarConTipos crea el lugar con sus tipos en orden', async () => {
+  const id = await guardarLugarConTipos({
+    datos: DATOS, hoy: '2026-10-27',
+    tipos: [{ nombre: 'Limpieza', precio: 2500000 }, { nombre: 'Arreglo', precio: 3800000 }],
+  });
+  expect((await db.lugares.get(id))?.nombre).toBe('Clínica Norte');
+  const tipos = await db.tiposTrabajo.where('lugarId').equals(id).sortBy('orden');
+  expect(tipos).toMatchObject([{ nombre: 'Limpieza', orden: 0 }, { nombre: 'Arreglo', orden: 1 }]);
+});
+
+test('guardarLugarConTipos: si un tipo falla al crear, no queda ningún lugar', async () => {
+  const espia = vi.spyOn(db.tiposTrabajo, 'put').mockRejectedValue(new Error('falla'));
+  try {
+    await expect(
+      guardarLugarConTipos({ datos: DATOS, hoy: '2026-10-27', tipos: [{ nombre: 'Limpieza', precio: 100 }] }),
+    ).rejects.toThrow();
+  } finally {
+    espia.mockRestore();
+  }
+  expect(await db.lugares.count()).toBe(0);
+  expect(await db.tiposTrabajo.count()).toBe(0);
+});
+
+test('guardarLugarConTipos: si un tipo falla al editar, el lugar y sus precios quedan como estaban', async () => {
+  const id = await lugarFijo();
+  const a = await guardarTipoTrabajo({ lugarId: id, nombre: 'Limpieza', precio: 2500000, orden: 0 });
+  await guardarTipoTrabajo({ lugarId: id, nombre: 'Arreglo', precio: 3800000, orden: 1 });
+  const antes = await db.lugares.get(id);
+  const espia = vi.spyOn(db.tiposTrabajo, 'put').mockRejectedValue(new Error('falla'));
+  try {
+    await expect(
+      guardarLugarConTipos({
+        id, hoy: '2026-10-27', datos: { ...DATOS, nombre: 'Otro nombre', diaCierre: 15 },
+        tipos: [{ id: a, nombre: 'Limpieza', precio: 9900 }], // además quita "Arreglo"
+      }),
+    ).rejects.toThrow();
+  } finally {
+    espia.mockRestore();
+  }
+  expect(await db.lugares.get(id)).toEqual(antes);
+  expect((await db.tiposTrabajo.toArray()).sort((x, y) => x.orden - y.orden)).toMatchObject([
+    { nombre: 'Limpieza', precio: 2500000 }, { nombre: 'Arreglo', precio: 3800000 },
+  ]);
+});
+
+test('guardarLugarConTipos edita, reordena y borra los tipos que ya no están', async () => {
+  const id = await lugarFijo();
+  const a = await guardarTipoTrabajo({ lugarId: id, nombre: 'Limpieza', precio: 2500000, orden: 0 });
+  await guardarTipoTrabajo({ lugarId: id, nombre: 'Arreglo', precio: 3800000, orden: 1 });
+  await guardarLugarConTipos({
+    id, hoy: '2026-10-27', datos: DATOS,
+    tipos: [{ nombre: 'Nuevo', precio: 100 }, { id: a, nombre: 'Limpieza', precio: 3000000 }],
+  });
+  expect(await db.tiposTrabajo.where('lugarId').equals(id).sortBy('orden')).toMatchObject([
+    { nombre: 'Nuevo', precio: 100, orden: 0 }, { id: a, precio: 3000000, orden: 1 },
+  ]);
+  // tipos: null no toca la lista
+  await guardarLugarConTipos({ id, hoy: '2026-10-27', datos: DATOS, tipos: null });
+  expect(await db.tiposTrabajo.count()).toBe(2);
 });
