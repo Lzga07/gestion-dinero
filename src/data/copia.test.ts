@@ -7,7 +7,9 @@ import { db } from './db';
 import { ErrorDatos as ErrorDeModulo } from './errores';
 import { archivarLugar, borrarLugar, borrarTipoTrabajo, guardarLugarConTipos, guardarTipoTrabajo } from './lugares';
 import { guardarMovimiento } from './movimientos';
-import { borrarPago, registrarPago } from './pagos';
+import {
+  borrarPago, cerrarPeriodo, cobrarDeuda, marcarNoPagado, noMePagaron, registrarPago, volverAPendiente,
+} from './pagos';
 import { anotarTrabajo, lugarFijo, reiniciarDb } from './test-helpers';
 import { guardarTrabajo } from './trabajos';
 
@@ -173,7 +175,8 @@ describe('después de borrar o reasignar, la copia se puede restaurar y deja los
     const ocio = await guardarCategoria({ nombre: 'Ocio', tipo: 'GASTO', ambito: 'PERSONAL', icono: '🎬', color: '#6a5acd', orden: 0 });
     const salud = await guardarCategoria({ nombre: 'Salud', tipo: 'GASTO', ambito: 'PERSONAL', icono: '💊', color: '#6a5acd', orden: 1 });
     await guardarMovimiento({ tipo: 'GASTO', fecha: '2026-10-05', monto: 1500, categoriaId: ocio, nota: '' });
-    return { lugarId, sinHistorial, limpieza, arreglo, pagoId, ocio, salud };
+    const octubre = (await db.trabajos.where('fecha').equals('2026-10-05').first())!.id;
+    return { lugarId, sinHistorial, limpieza, arreglo, pagoId, ocio, salud, t1, octubre };
   }
 
   test.each<[string, (b: Awaited<ReturnType<typeof base>>) => Promise<unknown>]>([
@@ -188,6 +191,18 @@ describe('después de borrar o reasignar, la copia se puede restaurar y deja los
     ['borrar un pago', (b) => borrarPago(b.pagoId)],
     ['archivar un lugar', (b) => archivarLugar(b.lugarId, true)],
     ['borrar un lugar sin historial', (b) => borrarLugar(b.sinHistorial)],
+    ['cerrar un período ("Ya no me van a pagar más")', (b) => cerrarPeriodo(b.lugarId, '2026-10-31', '2026-11-28')],
+    ['mover un trabajo pagado a otro lugar', async (b) => {
+      const t = (await db.trabajos.get(b.t1))!;
+      await guardarTrabajo({ ...t, lugarId: b.sinHistorial });
+    }],
+    ['marcar no pagado, cobrar la deuda y volver otro a pendiente', async (b) => {
+      await marcarNoPagado(b.octubre);
+      await cobrarDeuda(b.lugarId, '2026-11-28', { trabajos: [b.octubre], diferencias: [] });
+      await borrarPago(b.pagoId);
+      await noMePagaron(b.lugarId, '2026-09-30');
+      await volverAPendiente(b.t1);
+    }],
   ])('%s', async (_, operacion) => {
     const b = await base();
     await operacion(b);
