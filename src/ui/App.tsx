@@ -9,6 +9,7 @@ import Bloqueo from './screens/Bloqueo'
 import ConfigPin from './screens/ConfigPin'
 import ErrorApertura from './screens/bloqueo/ErrorApertura'
 import OfertaPin from './screens/bloqueo/OfertaPin'
+import Tapa from './screens/bloqueo/Tapa'
 import Copia from './screens/Copia'
 import ConfigLugar from './screens/ConfigLugar'
 import Estadisticas from './screens/Estadisticas'
@@ -66,6 +67,7 @@ export default function App() {
           </HashRouter>
         </div>
       )}
+      {bloqueo.fase === 'comprobando' && <Tapa />}
       {bloqueo.fase === 'bloqueada' && <Bloqueo onDesbloquear={bloqueo.desbloquear} />}
       {bloqueo.fase === 'error' && <ErrorApertura onReintentar={bloqueo.reintentar} />}
     </>

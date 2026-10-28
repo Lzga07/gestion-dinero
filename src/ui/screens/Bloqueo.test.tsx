@@ -159,13 +159,26 @@ describe('volver a bloquear', () => {
     await act(async () => ponerVisibilidad('visible'))
   }
 
+  /** Vuelve a mostrar la app con un `act` síncrono: lo que se ve acá es lo que se vería antes de que la base conteste. */
+  async function volverSinEsperar(ms: number) {
+    await act(async () => ponerVisibilidad('hidden'))
+    vi.setSystemTime(Date.now() + ms)
+    act(() => ponerVisibilidad('visible'))
+  }
+
   test('tras más de 1 minuto oculta pide el PIN; la app sigue montada, tapada e inerte', async () => {
     const user = await abrirDesbloqueada()
     const nav = screen.getByRole('navigation', { name: 'Navegación principal' })
 
-    await ocultarPor(61_000)
+    await volverSinEsperar(61_000)
+
+    // Al instante, antes de que la base conteste: la app ya está tapada e inerte (sin destello de datos).
+    expect(screen.getByRole('dialog', { name: 'Abriendo la app' })).toBeInTheDocument()
+    expect(nav.closest('[inert]')).not.toBeNull()
+    expect(nav.closest('[aria-hidden="true"]')).not.toBeNull()
 
     expect(await screen.findByRole('heading', { name: 'Ingresá tu PIN' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Abriendo la app' })).not.toBeInTheDocument()
     expect(nav.isConnected).toBe(true) // sigue montada: un formulario a medio llenar no se pierde
     expect(nav.closest('[inert]')).not.toBeNull()
     expect(nav.closest('[aria-hidden="true"]')).not.toBeNull()
@@ -196,10 +209,11 @@ describe('volver a bloquear', () => {
   test('si se quita el PIN mientras estaba oculta, no la bloquea', async () => {
     await abrirDesbloqueada()
     await db.ajustes.bulkDelete(['pinHash', 'pinSalt'])
-    await ocultarPor(5 * 60_000)
-    // Se tapa al instante (había PIN) y apenas lee que ya no hay, vuelve a abrirse sola.
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Ingresá tu PIN' })).not.toBeInTheDocument())
-    expect(screen.getByRole('navigation', { name: 'Navegación principal' })).toBeInTheDocument()
+    await volverSinEsperar(5 * 60_000)
+    // Se tapa al instante y apenas lee que ya no hay PIN, vuelve a abrirse sola.
+    expect(screen.getByRole('dialog', { name: 'Abriendo la app' })).toBeInTheDocument()
+    expect(await screen.findByRole('navigation', { name: 'Navegación principal' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   test('si no puede leer el PIN al volver, tapa la app y ofrece reintentar', async () => {
@@ -209,6 +223,35 @@ describe('volver a bloquear', () => {
     await ocultarPor(5 * 60_000)
     expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos abrir tus datos.')
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  })
+})
+
+describe('PIN creado en esta misma sesión', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 27, 12, 0, 0))
+  })
+
+  test('al volver tras más de 1 minuto tapa la app al instante, sin esperar a la base', async () => {
+    window.location.hash = '#/mas/pin'
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(await screen.findByLabelText('PIN nuevo'), '1234')
+    await user.type(screen.getByLabelText('Repetí el PIN'), '1234')
+    await user.click(screen.getByRole('button', { name: 'Crear PIN' }))
+    await screen.findByText(/^PIN creado\./)
+    const nav = screen.getByRole('navigation', { name: 'Navegación principal' })
+
+    await act(async () => ponerVisibilidad('hidden'))
+    vi.setSystemTime(Date.now() + 61_000)
+    act(() => ponerVisibilidad('visible'))
+
+    expect(screen.getByRole('dialog', { name: 'Abriendo la app' })).toBeInTheDocument()
+    expect(nav.closest('[inert]')).not.toBeNull()
+    expect(nav.closest('[aria-hidden="true"]')).not.toBeNull()
+
+    expect(await screen.findByRole('heading', { name: 'Ingresá tu PIN' })).toBeInTheDocument()
+    await desbloquear(user)
   })
 })
 

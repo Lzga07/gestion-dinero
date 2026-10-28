@@ -5,10 +5,11 @@ import { BLOQUEO_TRAS_MS } from '../../platform/pin'
 /**
  * - `cargando`: todavía no se sabe si hay PIN (no se dibuja nada).
  * - `error`: no se pudo leer la base; por las dudas no se abre (nunca se supone "sin PIN").
+ * - `comprobando`: se volvió a la app tras mucho tiempo y se está mirando si hay PIN; mientras tanto la app queda tapada.
  * - `bloqueada`: hay que ingresar el PIN.
  * - `abierta`: sin PIN, o ya desbloqueada.
  */
-export type FaseBloqueo = 'cargando' | 'error' | 'bloqueada' | 'abierta'
+export type FaseBloqueo = 'cargando' | 'error' | 'comprobando' | 'bloqueada' | 'abierta'
 
 export interface Bloqueo {
   fase: FaseBloqueo
@@ -30,8 +31,6 @@ export function useBloqueo(): Bloqueo {
   const faseActual = useRef(fase)
   // Cada lectura que empieza invalida a la anterior, para que una respuesta vieja no pise a una nueva.
   const lecturaActual = useRef(0)
-  // Lo último que se supo de la base. Si había PIN, al volver se tapa al instante, sin esperar la lectura.
-  const habiaPin = useRef(false)
 
   const cambiarFase = useCallback((nueva: FaseBloqueo) => {
     faseActual.current = nueva
@@ -44,7 +43,6 @@ export function useBloqueo(): Bloqueo {
     tienePin().then(
       (hay) => {
         if (numero !== lecturaActual.current) return
-        habiaPin.current = hay
         cambiarFase(hay ? 'bloqueada' : 'abierta')
       },
       (e: unknown) => {
@@ -72,8 +70,9 @@ export function useBloqueo(): Bloqueo {
       const desde = ocultaDesde
       ocultaDesde = null
       if (desde === null || faseActual.current !== 'abierta' || Date.now() - desde <= BLOQUEO_TRAS_MS) return
-      // Se vuelve a mirar la base (el PIN pudo cambiar), pero si había uno se tapa ya mismo: sin destello de datos.
-      if (habiaPin.current) cambiarFase('bloqueada')
+      // Se tapa ya mismo, sin depender de lo que se supiera antes (el PIN pudo crearse o quitarse en esta
+      // sesión): así no hay destello de datos mientras se lee la base. Después se bloquea o se destapa.
+      cambiarFase('comprobando')
       leer()
     }
     document.addEventListener('visibilitychange', alCambiarVisibilidad)
