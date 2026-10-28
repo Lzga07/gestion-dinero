@@ -936,3 +936,185 @@ a.screen-header__back {
   font-weight: 600;
   color: var(--neg);
 }
+
+/* Inicio */
+:root {
+  /* Alerta (terracota): pagos atrasados y deudas */
+  --alerta-bg: #f8e6df;
+  --alerta-titulo: #7d3524;
+  --alerta-texto: #5e2a1d;
+  /* Aviso (ámbar, más suave): conciliar y copia de seguridad */
+  --aviso-bg: #fbefe0;
+  --aviso-borde: #a8641c;
+  --aviso-titulo: #7a4a14;
+  --aviso-texto: #5a3a12;
+  --pill-bg: #e6f0ed;
+}
+
+.inicio {
+  /* Lugar para el botón flotante, que no tape la última tarjeta */
+  padding-bottom: 72px;
+}
+
+.mes {
+  margin: 4px 0 0;
+}
+
+.mes__titulo {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.mes__saldo {
+  margin: 0;
+  font-size: 2.125rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.mes__detalle {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 16px;
+  margin-top: 2px;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+
+.avisos {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.avisos .field__error {
+  margin: 0;
+}
+
+.aviso-card {
+  padding: 12px 14px;
+  border-left: 4px solid var(--neg);
+  border-radius: 12px;
+  background: var(--alerta-bg);
+  color: var(--alerta-texto);
+  font-size: 0.9375rem;
+}
+
+.aviso-card--aviso {
+  border-left-color: var(--aviso-borde);
+  background: var(--aviso-bg);
+  color: var(--aviso-texto);
+}
+
+.aviso-card__titulo {
+  margin: 0 0 2px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--alerta-titulo);
+}
+
+.aviso-card--aviso .aviso-card__titulo {
+  color: var(--aviso-titulo);
+}
+
+.aviso-card__texto {
+  margin: 0;
+}
+
+.aviso-card__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.aviso-card__acciones .btn {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.lugares-inicio {
+  display: grid;
+  gap: 8px;
+}
+
+.lugar-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.lugar-card:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.lugar-card__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lugar-card__nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lugar-card__cierre {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.lugar-card__trabajos {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.lugar-card__total {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.vacio {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.vacio__texto {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Botón flotante: por encima de la barra de navegación, alineado al borde derecho del contenido. */
+.fab {
+  position: fixed;
+  z-index: 1;
+  right: max(16px, calc(50% - 240px + 16px));
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 16px);
+  min-height: 52px;
+  border-radius: 18px;
+  box-shadow: 0 6px 14px rgba(37, 104, 91, 0.35);
+}
+
+.fab:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 2px;
+}

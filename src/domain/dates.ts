@@ -3,6 +3,11 @@ export type FechaISO = string;
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
 const dos = (n: number) => String(n).padStart(2, '0');
 
 /** Fecha local de hoy (o del `now` dado), usando getters locales. */
@@ -58,4 +63,9 @@ export function diasEntre(a: FechaISO, b: FechaISO): number {
 export function formatFechaCorta(f: FechaISO): string {
   const { m, d } = parseFecha(f);
   return `${d} ${MESES_CORTOS[m - 1]}`;
+}
+
+/** "Octubre": nombre completo del mes de la fecha. */
+export function nombreMes(f: FechaISO): string {
+  return MESES[parseFecha(f).m - 1];
 }

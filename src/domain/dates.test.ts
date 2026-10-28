@@ -5,6 +5,7 @@ import {
   diasEnMes,
   diasEntre,
   formatFechaCorta,
+  nombreMes,
   hoy,
   mesClave,
   parseFecha,
@@ -58,5 +59,13 @@ describe('dates', () => {
   test('formatFechaCorta', () => {
     expect(formatFechaCorta('2026-10-27')).toBe('27 oct');
     expect(formatFechaCorta('2026-01-05')).toBe('5 ene');
+  });
+});
+
+describe('nombreMes', () => {
+  test('nombre completo del mes de la fecha, con mayúscula', () => {
+    expect(nombreMes('2026-10-27')).toBe('Octubre');
+    expect(nombreMes('2026-01-05')).toBe('Enero');
+    expect(nombreMes('2026-12-31')).toBe('Diciembre');
   });
 });
