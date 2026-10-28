@@ -5,7 +5,7 @@ import { guardarAjuste, leerAjuste } from '../../data/ajustes'
 import { db } from '../../data/db'
 import { marcarNoPagado, yaMeLoPagaron } from '../../data/pagos'
 import { borrarTrabajo, guardarTrabajo } from '../../data/trabajos'
-import { hoy } from '../../domain/dates'
+import { formatFechaCorta, hoy } from '../../domain/dates'
 import { formatPorcentaje, type Centavos } from '../../domain/money'
 import {
   calcularTrabajo,
@@ -21,7 +21,10 @@ import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
 import MoneyInput, { ERROR_MONTO } from '../components/MoneyInput'
 import useVolver from '../components/useVolver'
+import { leerFechaRecordada, recordarFecha } from '../hooks/fechaRecordada'
+import { useHoy } from '../hooks/useHoy'
 import { pesosJuntos } from '../pesos'
+import AvisoNoEsHoy from './trabajo/AvisoNoEsHoy'
 
 const AVISO_EN_PAGO = 'Este trabajo ya está en un pago: cambiarlo modifica la conciliación de ese período'
 
@@ -127,7 +130,9 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
     const candidatos = [lugarPedido, datos.ultimoLugarId]
     return candidatos.find((c) => activos.some((l) => l.id === c)) ?? activos[0].id
   })
-  const [fecha, setFecha] = useState(trabajo?.fecha ?? hoy())
+  // Un trabajo nuevo arranca en la fecha del último guardado hace poco (carga de trabajos atrasados).
+  const [fecha, setFecha] = useState(() => trabajo?.fecha ?? leerFechaRecordada() ?? hoy())
+  const hoyFecha = useHoy()
   const [nota, setNota] = useState(trabajo?.nota ?? '')
 
   // Arancel fijo
@@ -152,7 +157,12 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
   const [guardando, setGuardando] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
   const [dialogo, setDialogo] = useState<'borrar' | 'mover' | null>(null)
-  const [pregunta, setPregunta] = useState<{ id: string; monto: Centavos } | null>(null)
+  /** `confirmacion`: aviso de "Guardado: …" si se tocó "Guardar y anotar otro" (null: vuelve al terminar). */
+  const [pregunta, setPregunta] = useState<{ id: string; monto: Centavos; confirmacion: string | null } | null>(null)
+  /** Aviso de lo último que se guardó con "Guardar y anotar otro"; vive en una región `status` permanente. */
+  const [confirmacion, setConfirmacion] = useState('')
+  /** Cuántas veces se preparó otro trabajo: remonta los campos de monto (que guardan su propio texto). */
+  const [otroN, setOtroN] = useState(0)
 
   const lugar = lugares.find((l) => l.id === lugarId) as Lugar
   const esPorcentaje = lugar.formaCobro === 'PORCENTAJE'
@@ -211,6 +221,15 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
       formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalido="true"]')?.focus()
   }, [intentado])
 
+  // Después de "Guardar y anotar otro", el foco va al primer campo a completar: el primer tipo de la lista
+  // o, si el lugar no tiene lista (solo "Otro…") o cobra por porcentaje, la descripción.
+  useEffect(() => {
+    if (otroN === 0 || !formRef.current) return
+    const tipos = formRef.current.querySelectorAll<HTMLElement>('input[name="tipo"]')
+    const primero = tipos.length > 1 ? tipos[0] : formRef.current.querySelector<HTMLElement>('input[type="text"]')
+    primero?.focus()
+  }, [otroN])
+
   function cambiarLugar(nuevo: string) {
     setLugarId(nuevo)
     setSel(null)
@@ -227,8 +246,12 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
   }
 
   // ---- Acciones ----
-  async function guardar(e: FormEvent) {
+  function enviar(e: FormEvent) {
     e.preventDefault()
+    return guardar(false)
+  }
+
+  async function guardar(anotarOtro: boolean) {
     if (guardandoRef.current) return
     setErrorGeneral(null)
     if (hayErrores || !res.ok) {
@@ -240,14 +263,43 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
       setDialogo('mover')
       return
     }
-    await grabar()
+    await grabar(anotarOtro)
   }
 
-  async function grabar() {
+  /** Deja el formulario listo para el siguiente trabajo: mismo lugar y fecha, el resto vacío. */
+  function prepararOtro(mensaje: string) {
+    setSel(null)
+    setOtroNombre('')
+    setOtroMonto(null)
+    setOtroInvalido(false)
+    setDescripcion('')
+    setMontoCliente(null)
+    setClienteInvalido(false)
+    setDescuento(null)
+    setDescuentoInvalido(false)
+    setMotivo('')
+    setNota('')
+    setIntentado(0)
+    setErrorGeneral(null)
+    idGuardado.current = null // el próximo "Guardar" crea otro trabajo, no edita este
+    guardandoRef.current = false
+    setGuardando(false)
+    setConfirmacion(mensaje)
+    setOtroN((n) => n + 1)
+  }
+
+  /** Último paso de un guardado: vuelve a la pantalla anterior o, con "anotar otro", prepara el siguiente. */
+  function terminar(confirmacionOtro: string | null) {
+    if (confirmacionOtro === null) volver()
+    else prepararOtro(confirmacionOtro)
+  }
+
+  async function grabar(anotarOtro: boolean) {
     if (guardandoRef.current || !res.ok) return
     setDialogo(null)
     guardandoRef.current = true
     setGuardando(true)
+    setConfirmacion('')
     const conDescuento = esPorcentaje && descuento !== null && descuento > 0
     try {
       const { id, periodoYaPagado } = await guardarTrabajo({
@@ -268,13 +320,15 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
       if (!trabajo) {
         // Solo una comodidad: si no se puede recordar, el trabajo igual quedó guardado.
         await guardarAjuste('ultimoLugarId', lugarId).catch(() => undefined)
+        recordarFecha(fecha)
       }
+      const aviso = anotarOtro ? `Guardado: ${res.descripcion} · ${pesosJuntos(res.monto)} · ${formatFechaCorta(fecha)}` : null
       // Solo se pregunta por trabajos olvidados (nuevos, mudados de lugar o todavía sin resolver): uno ya
       // pagado, o ya marcado como no pagado, no se vuelve a preguntar al editarlo.
       const sinResolver =
         !trabajo || trabajo.lugarId !== lugarId || (trabajo.estado === 'PENDIENTE' && trabajo.pagoId === null)
-      if (periodoYaPagado && sinResolver) setPregunta({ id, monto: res.monto })
-      else volver()
+      if (periodoYaPagado && sinResolver) setPregunta({ id, monto: res.monto, confirmacion: aviso })
+      else terminar(aviso)
     } catch {
       setErrorGeneral('No se pudo guardar. Probá de nuevo.')
       guardandoRef.current = false
@@ -284,7 +338,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
 
   async function responder(respuesta: 'si' | 'no' | 'nose') {
     if (!pregunta) return
-    const { id, monto } = pregunta
+    const { id, monto, confirmacion: aviso } = pregunta
     setPregunta(null)
     try {
       if (respuesta === 'si') await yaMeLoPagaron(id, hoy(), monto)
@@ -295,7 +349,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
       setGuardando(false)
       return
     }
-    volver()
+    terminar(aviso)
   }
 
   async function borrar() {
@@ -319,7 +373,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
         </Card>
       )}
 
-      <form ref={formRef} className="form--con-barra" onSubmit={guardar} noValidate>
+      <form ref={formRef} className="form--con-barra" onSubmit={enviar} noValidate>
         <Card>
           <Field label="Lugar">
             {(control) => (
@@ -348,6 +402,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
               />
             )}
           </Field>
+          {!trabajo && <AvisoNoEsHoy fecha={fecha} hoy={hoyFecha} onHoy={() => setFecha(hoy())} />}
 
           {esPorcentaje ? (
             <>
@@ -364,6 +419,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
                 )}
               </Field>
               <MoneyInput
+                key={`cliente-${otroN}`}
                 label="Lo que pagó el cliente"
                 value={montoCliente}
                 onChange={setMontoCliente}
@@ -371,6 +427,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
                 error={errMonto(clienteInvalido)}
               />
               <MoneyInput
+                key={`descuento-${otroN}`}
                 label="Descuento antes del % (opcional)"
                 hint="Se resta de lo que pagó el cliente antes de aplicar el porcentaje."
                 value={descuento}
@@ -449,6 +506,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
                     )}
                   </Field>
                   <MoneyInput
+                    key={`otro-${otroN}`}
                     label="Monto que te corresponde"
                     value={otroMonto}
                     onChange={setOtroMonto}
@@ -495,9 +553,29 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
               </p>
             )}
           </div>
-          <Button type="submit" block disabled={guardando} className="form__guardar">
-            Guardar
-          </Button>
+          {!trabajo && (
+            <p className="form__guardado" role="status">
+              {confirmacion}
+            </p>
+          )}
+          <div className={trabajo ? undefined : 'form__acciones'}>
+            <Button type="submit" block disabled={guardando} className="form__guardar">
+              Guardar
+            </Button>
+            {!trabajo && (
+              <Button
+                variante="secundario"
+                block
+                disabled={guardando}
+                className="form__guardar"
+                // El e2e (y quien busque "Guardar" por nombre) encuentra solo el botón principal.
+                aria-label="Anotar otro trabajo (este se guarda)"
+                onClick={() => guardar(true)}
+              >
+                Guardar y anotar otro
+              </Button>
+            )}
+          </div>
         </div>
 
         {trabajo && (
@@ -514,7 +592,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
           titulo={`¿Mover el trabajo a ${lugar.nombre}?`}
           texto={textoMudanza(trabajo, actual?.nombre ?? 'el otro lugar', lugar.nombre)}
           confirmar="Mover"
-          onConfirm={grabar}
+          onConfirm={() => grabar(false)}
           onCancel={() => setDialogo(null)}
         />
       )}

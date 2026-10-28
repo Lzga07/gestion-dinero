@@ -72,6 +72,12 @@ export function formatFechaCorta(f: FechaISO): string {
   return `${d} ${MESES_CORTOS[m - 1]}`;
 }
 
+/** "3 de mayo de 2026" */
+export function formatFechaLarga(f: FechaISO): string {
+  const { y, m, d } = parseFecha(f);
+  return `${d} de ${MESES[m - 1].toLowerCase()} de ${y}`;
+}
+
 /** "Octubre": nombre completo del mes de la fecha. */
 export function nombreMes(f: FechaISO): string {
   return MESES[parseFecha(f).m - 1];

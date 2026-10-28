@@ -441,6 +441,57 @@ select.input {
   margin-top: 8px;
 }
 
+/* "Guardar" y "Guardar y anotar otro", lado a lado (el segundo, más ancho por su texto). */
+.form__barra .form__acciones {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.form__barra .form__acciones .form__guardar {
+  margin-top: 0;
+  padding: 0 10px;
+}
+
+/* Confirmación de lo último guardado con "Guardar y anotar otro" (región `status` siempre presente). */
+.form__guardado {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.form__guardado:not(:empty) {
+  margin-bottom: 8px;
+}
+
+/* Debajo de la fecha: avisa que no es hoy, con todas las letras, y deja volver a hoy de un toque. */
+.aviso-fecha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 16px;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid var(--aviso-borde-fino);
+  border-radius: 12px;
+  background: var(--aviso-bg);
+  color: var(--aviso-texto);
+}
+
+.aviso-fecha__texto {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.aviso-fecha .btn {
+  flex: none;
+  min-height: 44px;
+  padding: 0 18px;
+}
+
 /* Un campo enfocado no queda tapado por la franja fija. */
 .form--con-barra .input {
   scroll-margin-bottom: 11rem;
