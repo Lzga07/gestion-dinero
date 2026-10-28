@@ -1,5 +1,6 @@
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
+import ConfigLugar from './screens/ConfigLugar'
 import Estadisticas from './screens/Estadisticas'
 import Inicio from './screens/Inicio'
 import Lugares from './screens/Lugares'
@@ -15,6 +16,8 @@ export default function App() {
             <Route path="/" element={<Inicio />} />
             <Route path="/movimientos" element={<Movimientos />} />
             <Route path="/lugares" element={<Lugares />} />
+            <Route path="/lugares/nuevo" element={<ConfigLugar />} />
+            <Route path="/lugares/:id/config" element={<ConfigLugar />} />
             <Route path="/estadisticas" element={<Estadisticas />} />
             <Route path="/mas" element={<Mas />} />
           </Routes>
