@@ -470,3 +470,116 @@ select.input {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* Anotar y editar un trabajo */
+button.screen-header__back {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  position: relative;
+  display: flex;
+}
+
+.chip__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.chip__text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.9375rem;
+}
+
+.chip__text small {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.chip__input:checked + .chip__text {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.chip__input:checked + .chip__text small {
+  color: #fff;
+}
+
+.chip__input:focus-visible + .chip__text {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.resultado {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #e3efeb;
+}
+
+.resultado__detalle {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+  color: #3d4544;
+}
+
+.resultado__fila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resultado__etiqueta {
+  font-size: 0.875rem;
+  color: #3d4544;
+}
+
+.resultado__monto {
+  font-size: 1.5rem;
+  color: #1d5348;
+}
+
+.aviso {
+  margin-bottom: 8px;
+  border-color: var(--neg);
+  color: var(--neg);
+  font-weight: 600;
+}
+
+.aviso p {
+  margin: 0;
+}
+
+/* El botón de guardar queda a la vista, por encima de la barra de navegación. */
+.form__guardar--fijo {
+  position: sticky;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 8px);
+  z-index: 1;
+  box-shadow: 0 0 0 8px var(--bg);
+}

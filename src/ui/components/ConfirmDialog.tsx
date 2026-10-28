@@ -11,6 +11,8 @@ interface ConfirmDialogProps {
   peligro?: boolean
   /** Texto del botón de cancelar; null lo oculta (aviso con un solo botón). */
   cancelar?: string | null
+  /** Tercera respuesta (botón secundario entre "Cancelar" y "Confirmar"), p. ej. Sí / No / Todavía no sé. */
+  alternativa?: { texto: string; onClick: () => void }
 }
 
 const FOCUSABLES = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -24,6 +26,7 @@ export default function ConfirmDialog({
   onCancel,
   peligro = false,
   cancelar = 'Cancelar',
+  alternativa,
 }: ConfirmDialogProps) {
   const id = useId()
   const caja = useRef<HTMLDivElement>(null)
@@ -79,6 +82,11 @@ export default function ConfirmDialog({
           {cancelar !== null && (
             <Button ref={cancelRef} variante="secundario" onClick={onCancel}>
               {cancelar}
+            </Button>
+          )}
+          {alternativa && (
+            <Button variante="secundario" onClick={alternativa.onClick}>
+              {alternativa.texto}
             </Button>
           )}
           <Button ref={confirmRef} variante={peligro ? 'peligro' : 'primario'} onClick={onConfirm}>
