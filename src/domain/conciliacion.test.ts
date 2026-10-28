@@ -1,4 +1,5 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+import { calcularAvisos } from './avisos';
 import {
   type CambioTrabajo,
   cobradoPorPeriodo,
@@ -7,6 +8,7 @@ import {
   resumenPeriodo,
   trabajosOfrecidosParaPago,
 } from './conciliacion';
+import * as periodos from './periodos';
 import { INICIO_DE_LOS_TIEMPOS, periodoQueContiene } from './periodos';
 import type { EstadoPago, Lugar, Pago, TipoPago, Trabajo } from './types';
 
@@ -225,4 +227,35 @@ test('trabajosOfrecidosParaPago agrupa anteriores pendientes y no pagados', () =
   expect(r.anteriores.map(g => g.periodo)).toEqual([AGO, jul]);
   expect(r.anteriores.map(g => g.trabajos.map(x => x.id))).toEqual([['agoP'], ['julN']]);
   expect(r.anteriores.some(g => g.periodo.fin === SEP.fin)).toBe(false);
+});
+
+test('trabajosOfrecidosParaPago ordena por fecha, dentro del período y en cada grupo anterior', () => {
+  const trabajos = [
+    t('sep20', '2026-09-20', 100),
+    t('sep03', '2026-09-03', 100, 'NO_PAGADO'),
+    t('sep10', '2026-09-10', 100),
+    t('ago25', '2026-08-25', 100),
+    t('ago02', '2026-08-02', 100, 'NO_PAGADO'),
+  ];
+  const r = trabajosOfrecidosParaPago(lugarUlt, SEP.fin, trabajos);
+  expect(r.delPeriodo.map(x => x.id)).toEqual(['sep03', 'sep10', 'sep20']);
+  expect(r.anteriores.map(g => g.trabajos.map(x => x.id))).toEqual([['ago02', 'ago25']]);
+});
+
+test('el período de cada trabajo se calcula una sola vez (no una vez por período)', () => {
+  // 12 meses con 10 trabajos cada uno y un pago por mes.
+  const trabajos: Trabajo[] = [];
+  const pagos: Pago[] = [];
+  for (let m = 1; m <= 12; m++) {
+    const mes = String(m).padStart(2, '0');
+    for (let d = 1; d <= 10; d++) trabajos.push(t(`t${mes}${d}`, `2025-${mes}-${String(d).padStart(2, '0')}`, 100, 'PAGADO', `p${mes}`));
+    pagos.push(pago(`p${mes}`, periodoQueContiene(lugarUlt.reglasCierre, `2025-${mes}-15`).fin, 1000, 'FINAL'));
+  }
+  const espia = vi.spyOn(periodos, 'periodoQueContiene');
+  calcularAvisos({ hoy: '2026-10-27', lugares: [lugarUlt], trabajos, pagos, ultimaCopia: null, recordatorioDias: 0, hayDatos: true });
+  expect(espia.mock.calls.length).toBeLessThanOrEqual(trabajos.length);
+  espia.mockClear();
+  trabajosOfrecidosParaPago(lugarUlt, '2025-12-31', trabajos);
+  expect(espia.mock.calls.length).toBeLessThanOrEqual(trabajos.length);
+  espia.mockRestore();
 });

@@ -1,7 +1,7 @@
 import { type FechaISO, diasEntre, hoy as fechaLocal } from './dates';
-import { resumenPeriodo } from './conciliacion';
+import { conciliacionDelLugar } from './conciliacion';
 import type { Centavos } from './money';
-import { type Periodo, periodoQueContiene, ventanaPago } from './periodos';
+import { type Periodo, ventanaPago } from './periodos';
 import type { Lugar, Pago, Trabajo } from './types';
 
 export type Aviso =
@@ -16,17 +16,6 @@ export type Aviso =
 
 const suma = (ts: Trabajo[]): Centavos => ts.reduce((s, tr) => s + tr.monto, 0);
 const porNombre = (a: Lugar, b: Lugar) => a.nombre.localeCompare(b.nombre, 'es');
-
-/** Períodos del lugar que contienen al menos uno de sus trabajos, del más viejo al más nuevo. */
-function periodosConTrabajos(lugar: Lugar, trabajos: Trabajo[]): Periodo[] {
-  const porFin = new Map<FechaISO, Periodo>();
-  for (const tr of trabajos) {
-    if (tr.lugarId !== lugar.id) continue;
-    const p = periodoQueContiene(lugar.reglasCierre, tr.fecha);
-    porFin.set(p.fin, p);
-  }
-  return [...porFin.values()].sort((a, b) => (a.fin < b.fin ? -1 : a.fin > b.fin ? 1 : 0));
-}
 
 export function calcularAvisos(a: {
   hoy: FechaISO;
@@ -44,8 +33,9 @@ export function calcularAvisos(a: {
   for (const lugar of a.lugares) {
     const noPagados: Trabajo[] = [];
     const deudasPlata: { periodo: Periodo; monto: Centavos }[] = [];
-    for (const periodo of periodosConTrabajos(lugar, a.trabajos)) {
-      const r = resumenPeriodo(lugar, periodo, a.trabajos, a.pagos);
+    const conciliacion = conciliacionDelLugar(lugar, a.trabajos, a.pagos);
+    for (const periodo of conciliacion.periodosConTrabajos) {
+      const r = conciliacion.resumen(periodo);
       noPagados.push(...r.noPagados);
       if (r.deudaPlata > 0) deudasPlata.push({ periodo, monto: r.deudaPlata });
 

@@ -70,3 +70,45 @@ test('cambiarDiaCierre con hoy anterior a todas las reglas no falla', () => {
   expect(r.at(-1)).toEqual({ vigenteDesde: '2019-05-16', dia: 10 });
   expect(periodoQueContiene(r, '2019-05-05')).toEqual({ inicio: '2019-04-16', fin: '2019-05-15' });
 });
+
+const d29 = [{ vigenteDesde: INICIO_DE_LOS_TIEMPOS, dia: 29 }];
+test('cierre 29 en febrero no bisiesto: cierra el 28 y marzo arranca el 1', () => {
+  expect(periodoQueContiene(d29, '2027-02-15')).toEqual({ inicio: '2027-01-30', fin: '2027-02-28' });
+  expect(periodoQueContiene(d29, '2027-02-28')).toEqual({ inicio: '2027-01-30', fin: '2027-02-28' });
+  expect(periodoQueContiene(d29, '2027-03-01')).toEqual({ inicio: '2027-03-01', fin: '2027-03-29' });
+});
+test('cierre 29 en febrero bisiesto: cierra el 29', () => {
+  expect(periodoQueContiene(d29, '2028-02-15')).toEqual({ inicio: '2028-01-30', fin: '2028-02-29' });
+  expect(periodoQueContiene(d29, '2028-02-29')).toEqual({ inicio: '2028-01-30', fin: '2028-02-29' });
+  expect(periodoQueContiene(d29, '2028-03-01')).toEqual({ inicio: '2028-03-01', fin: '2028-03-29' });
+});
+
+/** Recorre día por día: cada fecha cae en su período y el período siguiente arranca al otro día del cierre. */
+function verificarContiguos(reglas: Parameters<typeof periodoQueContiene>[0], desde: string, hasta: string) {
+  for (let f = desde; f <= hasta; f = sumarDias(f, 1)) {
+    const p = periodoQueContiene(reglas, f);
+    expect(p.inicio <= f && f <= p.fin, `${f} cae en ${p.inicio}…${p.fin}`).toBe(true);
+    const siguiente = periodoQueContiene(reglas, sumarDias(p.fin, 1));
+    expect(siguiente.inicio, `después de ${p.fin}`).toBe(sumarDias(p.fin, 1));
+  }
+}
+
+test('cierre 29, 30 y 31 son contiguos día por día durante dos años (con un febrero bisiesto)', () => {
+  for (const reglas of [d29, d30, d31]) verificarContiguos(reglas, '2027-01-01', '2028-12-31');
+});
+
+test('los períodos son contiguos a través de varios cambios de regla', () => {
+  let r = cambiarDiaCierre(ult, 15, '2026-10-20'); // desde el 1/11: cierra el 15
+  r = cambiarDiaCierre(r, 29, '2027-01-20'); // desde el 16/2: cierra el 29
+  r = cambiarDiaCierre(r, 'ULTIMO', '2028-02-10'); // desde el 1/3/2028: último día
+  expect(r.map(x => x.vigenteDesde)).toEqual([INICIO_DE_LOS_TIEMPOS, '2026-11-01', '2027-02-16', '2028-03-01']);
+  verificarContiguos(r, '2026-09-01', '2028-06-30');
+  // Las transiciones: el período abierto termina en su fecha y el siguiente arranca al otro día.
+  expect(periodoQueContiene(r, '2027-02-10')).toEqual({ inicio: '2027-01-16', fin: '2027-02-15' });
+  expect(periodoQueContiene(r, '2027-02-20')).toEqual({ inicio: '2027-02-16', fin: '2027-02-28' });
+  expect(periodoQueContiene(r, '2028-02-10')).toEqual({ inicio: '2028-01-30', fin: '2028-02-29' });
+  expect(periodoQueContiene(r, '2028-03-10')).toEqual({ inicio: '2028-03-01', fin: '2028-03-31' });
+  // periodosEntre recorre esos mismos períodos sin huecos.
+  const ps = periodosEntre(r, '2026-09-01', '2028-06-30');
+  for (let i = 0; i < ps.length - 1; i++) expect(ps[i + 1].fin).toBe(sumarDias(ps[i].inicio, -1));
+});

@@ -328,3 +328,42 @@ describe('lista de lugares', () => {
     await waitFor(() => expect(screen.getByRole('link', { name: '+ Agregar lugar' })).toBeInTheDocument())
   })
 })
+
+describe('volver sin guardar', () => {
+  test('sin cambios vuelve directo a Lugares', async () => {
+    const id = await lugarFijo()
+    await guardarTipoTrabajo({ lugarId: id, nombre: 'Limpieza', precio: 2500000, orden: 0 })
+    const user = renderEn(`/lugares/${id}/config`)
+    await screen.findByDisplayValue('Clínica Centro')
+
+    await user.click(screen.getByRole('link', { name: 'Volver a Lugares' }))
+    expect(await screen.findByRole('heading', { name: 'Lugares' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  test('con cambios pregunta "¿Descartar los cambios?" y solo descarta si se confirma', async () => {
+    const id = await lugarFijo()
+    await guardarTipoTrabajo({ lugarId: id, nombre: 'Limpieza', precio: 2500000, orden: 0 })
+    const user = renderEn(`/lugares/${id}/config`)
+    const nombre = await screen.findByDisplayValue('Clínica Centro')
+    await user.type(nombre, ' Norte')
+
+    await user.click(screen.getByRole('link', { name: 'Volver a Lugares' }))
+    const dialogo = await screen.findByRole('dialog', { name: '¿Descartar los cambios?' })
+    await user.click(within(dialogo).getByRole('button', { name: 'Seguir editando' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Clínica Centro Norte')
+
+    await user.click(screen.getByRole('link', { name: 'Volver a Lugares' }))
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Descartar' }))
+    expect(await screen.findByRole('heading', { name: 'Lugares' })).toBeInTheDocument()
+    expect((await db.lugares.get(id))!.nombre).toBe('Clínica Centro')
+  })
+
+  test('un lugar nuevo a medio cargar también pregunta', async () => {
+    const user = renderEn('/lugares/nuevo')
+    await user.type(screen.getByLabelText('Nombre'), 'Consultorio')
+    await user.click(screen.getByRole('link', { name: 'Volver a Lugares' }))
+    expect(await screen.findByRole('dialog', { name: '¿Descartar los cambios?' })).toBeInTheDocument()
+  })
+})

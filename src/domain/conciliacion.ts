@@ -28,8 +28,49 @@ export function resolverPago(a: { pago: Pago; tildados: Trabajo[]; destildados: 
   ];
 }
 
-function finDe(lugar: Lugar, tr: Trabajo): FechaISO {
-  return periodoQueContiene(lugar.reglasCierre, tr.fecha).fin;
+/**
+ * Lo que hace falta para conciliar un lugar, calculado en una sola pasada: el período de cada trabajo (una
+ * vez por trabajo, no una vez por período), los trabajos y los pagos agrupados por período (en el orden en
+ * que vinieron) y lo cobrado por período.
+ */
+interface Indice {
+  porPeriodo: Map<FechaISO, { periodo: Periodo; trabajos: Trabajo[] }>;
+  pagosPorFin: Map<FechaISO, Pago[]>;
+  cobrado: Map<FechaISO, Centavos>;
+}
+
+function indexar(lugar: Lugar, trabajos: Trabajo[], pagos: Pago[]): Indice {
+  const porPeriodo = new Map<FechaISO, { periodo: Periodo; trabajos: Trabajo[] }>();
+  const finDe = new Map<string, FechaISO>();
+  const porPago = new Map<string, Trabajo[]>();
+  for (const tr of trabajos) {
+    if (tr.lugarId !== lugar.id) continue;
+    const periodo = periodoQueContiene(lugar.reglasCierre, tr.fecha);
+    finDe.set(tr.id, periodo.fin);
+    const grupo = porPeriodo.get(periodo.fin) ?? { periodo, trabajos: [] };
+    grupo.trabajos.push(tr);
+    porPeriodo.set(periodo.fin, grupo);
+    if (tr.pagoId !== null) porPago.set(tr.pagoId, [...(porPago.get(tr.pagoId) ?? []), tr]);
+  }
+
+  // Cada pago asigna a cada trabajo tildado de otro período su `monto`; el resto (puede ser negativo) va
+  // al `periodoFin` del pago.
+  const pagosPorFin = new Map<FechaISO, Pago[]>();
+  const cobrado = new Map<FechaISO, Centavos>();
+  const sumar = (fin: FechaISO, c: Centavos) => cobrado.set(fin, (cobrado.get(fin) ?? 0) + c);
+  for (const p of pagos) {
+    if (p.lugarId !== lugar.id) continue;
+    pagosPorFin.set(p.periodoFin, [...(pagosPorFin.get(p.periodoFin) ?? []), p]);
+    let resto = p.monto;
+    for (const tr of porPago.get(p.id) ?? []) {
+      const fin = finDe.get(tr.id)!;
+      if (fin === p.periodoFin) continue;
+      sumar(fin, tr.monto);
+      resto -= tr.monto;
+    }
+    sumar(p.periodoFin, resto);
+  }
+  return { porPeriodo, pagosPorFin, cobrado };
 }
 
 /**
@@ -37,22 +78,7 @@ function finDe(lugar: Lugar, tr: Trabajo): FechaISO {
  * `monto`; el resto (puede ser negativo) va al `periodoFin` del pago.
  */
 export function cobradoPorPeriodo(lugar: Lugar, trabajos: Trabajo[], pagos: Pago[]): Map<FechaISO, Centavos> {
-  const delLugar = trabajos.filter(tr => tr.lugarId === lugar.id);
-  const cobrado = new Map<FechaISO, Centavos>();
-  const sumar = (fin: FechaISO, c: Centavos) => cobrado.set(fin, (cobrado.get(fin) ?? 0) + c);
-  for (const p of pagos) {
-    if (p.lugarId !== lugar.id) continue;
-    let resto = p.monto;
-    for (const tr of delLugar) {
-      if (tr.pagoId !== p.id) continue;
-      const fin = finDe(lugar, tr);
-      if (fin === p.periodoFin) continue;
-      sumar(fin, tr.monto);
-      resto -= tr.monto;
-    }
-    sumar(p.periodoFin, resto);
-  }
-  return cobrado;
+  return indexar(lugar, trabajos, pagos).cobrado;
 }
 
 export interface ResumenPeriodo {
@@ -76,13 +102,13 @@ export interface ResumenPeriodo {
 
 const suma = (ts: Trabajo[]): Centavos => ts.reduce((s, tr) => s + tr.monto, 0);
 
-export function resumenPeriodo(lugar: Lugar, periodo: Periodo, trabajos: Trabajo[], pagos: Pago[]): ResumenPeriodo {
-  const delPeriodo = trabajos.filter(tr => tr.lugarId === lugar.id && finDe(lugar, tr) === periodo.fin);
+function resumenDesde(idx: Indice, periodo: Periodo): ResumenPeriodo {
+  const delPeriodo = idx.porPeriodo.get(periodo.fin)?.trabajos ?? [];
   const pendientes = delPeriodo.filter(tr => tr.estado === 'PENDIENTE');
   const noPagados = delPeriodo.filter(tr => tr.estado === 'NO_PAGADO');
-  const pagosDelPeriodo = pagos.filter(p => p.lugarId === lugar.id && p.periodoFin === periodo.fin);
+  const pagosDelPeriodo = idx.pagosPorFin.get(periodo.fin) ?? [];
   const teCorresponde = suma(delPeriodo);
-  const cobrado = cobradoPorPeriodo(lugar, trabajos, pagos).get(periodo.fin) ?? 0;
+  const cobrado = idx.cobrado.get(periodo.fin) ?? 0;
   const faltaCobrar = teCorresponde - cobrado;
   const hayFinal = pagosDelPeriodo.some(p => p.tipo === 'FINAL');
   const faltaEnPlata = Math.max(0, faltaCobrar - suma(pendientes) - suma(noPagados));
@@ -103,7 +129,32 @@ export function resumenPeriodo(lugar: Lugar, periodo: Periodo, trabajos: Trabajo
   };
 }
 
-/** Lista para tildar al registrar un pago: lo sin pagar del período elegido y lo atrasado de períodos anteriores. */
+export function resumenPeriodo(lugar: Lugar, periodo: Periodo, trabajos: Trabajo[], pagos: Pago[]): ResumenPeriodo {
+  return resumenDesde(indexar(lugar, trabajos, pagos), periodo);
+}
+
+/**
+ * Para resumir muchos períodos del mismo lugar sin recalcular todo cada vez: `periodosConTrabajos` (del más
+ * viejo al más nuevo) y `resumen(periodo)`, que da lo mismo que `resumenPeriodo`.
+ */
+export function conciliacionDelLugar(lugar: Lugar, trabajos: Trabajo[], pagos: Pago[]): {
+  periodosConTrabajos: Periodo[];
+  resumen: (periodo: Periodo) => ResumenPeriodo;
+} {
+  const idx = indexar(lugar, trabajos, pagos);
+  const periodosConTrabajos = [...idx.porPeriodo.values()]
+    .map(g => g.periodo)
+    .sort((a, b) => (a.fin < b.fin ? -1 : a.fin > b.fin ? 1 : 0));
+  return { periodosConTrabajos, resumen: periodo => resumenDesde(idx, periodo) };
+}
+
+const porFecha = (a: Trabajo, b: Trabajo) =>
+  a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.creadoEn < b.creadoEn ? -1 : a.creadoEn > b.creadoEn ? 1 : 0;
+
+/**
+ * Lista para tildar al registrar un pago: lo sin pagar del período elegido y lo atrasado de períodos
+ * anteriores (del más nuevo al más viejo), cada lista por fecha.
+ */
 export function trabajosOfrecidosParaPago(
   lugar: Lugar,
   periodoFin: FechaISO,
@@ -121,6 +172,8 @@ export function trabajosOfrecidosParaPago(
       porPeriodo.set(periodo.fin, grupo);
     }
   }
-  const anteriores = [...porPeriodo.values()].sort((x, y) => (x.periodo.fin < y.periodo.fin ? 1 : -1));
-  return { delPeriodo, anteriores };
+  const anteriores = [...porPeriodo.values()]
+    .sort((x, y) => (x.periodo.fin < y.periodo.fin ? 1 : -1))
+    .map(g => ({ ...g, trabajos: g.trabajos.sort(porFecha) }));
+  return { delPeriodo: delPeriodo.sort(porFecha), anteriores };
 }

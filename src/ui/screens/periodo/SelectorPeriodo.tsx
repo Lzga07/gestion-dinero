@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { hoy, sumarDias, type FechaISO } from '../../../domain/dates'
 import { nombrePeriodo, periodoQueContiene, periodosEntre, type Periodo } from '../../../domain/periodos'
-import { resumenPeriodo } from '../../../domain/conciliacion'
+import { conciliacionDelLugar } from '../../../domain/conciliacion'
 import type { Lugar, Pago, Trabajo } from '../../../domain/types'
 import Card from '../../components/Card'
-import { finDe, sumaMontos } from './utils'
+import { sumaMontos } from './utils'
 import { pesosJuntos } from '../../pesos'
 
 interface SelectorPeriodoProps {
@@ -70,10 +70,11 @@ function Historial({
 }: Omit<SelectorPeriodoProps, 'onElegir'> & { hoyISO: FechaISO; onElegir: (fin: FechaISO) => void }) {
   const primera = trabajos.reduce<FechaISO>((m, tr) => (tr.fecha < m ? tr.fecha : m), hoyISO)
   const periodos = periodosEntre(lugar.reglasCierre, primera, hoyISO)
-  const total = (p: Periodo) => sumaMontos(trabajos.filter((tr) => finDe(lugar, tr) === p.fin))
+  const conciliacion = conciliacionDelLugar(lugar, trabajos, pagos)
+  const total = (p: Periodo) => conciliacion.resumen(p).teCorresponde
   /** Lo que le deben del período: trabajos sin pagar y diferencia en plata. */
   const deuda = (p: Periodo) => {
-    const r = resumenPeriodo(lugar, p, trabajos, pagos)
+    const r = conciliacion.resumen(p)
     return sumaMontos(r.noPagados) + r.deudaPlata
   }
   return (

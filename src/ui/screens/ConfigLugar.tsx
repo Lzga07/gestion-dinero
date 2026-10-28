@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { db } from '../../data/db'
 import { ErrorDatos } from '../../data/errores'
@@ -71,10 +71,11 @@ export default function ConfigLugar() {
   return <Formulario key={id} datos={datos ?? null} />
 }
 
-function Encabezado({ titulo }: { titulo: string }) {
+/** `onVolver` puede frenar la navegación (p. ej. para preguntar si descartar los cambios). */
+function Encabezado({ titulo, onVolver }: { titulo: string; onVolver?: (e: MouseEvent) => void }) {
   return (
     <header className="screen-header">
-      <Link className="screen-header__back" to="/lugares" aria-label="Volver a Lugares">
+      <Link className="screen-header__back" to="/lugares" aria-label="Volver a Lugares" onClick={onVolver}>
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M15 5l-7 7 7 7" />
         </svg>
@@ -120,7 +121,21 @@ function Formulario({ datos }: { datos: Datos | null }) {
   const [intentado, setIntentado] = useState(0)
   const [guardando, setGuardando] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
-  const [dialogo, setDialogo] = useState<'archivar' | 'borrar' | 'calendario' | null>(null)
+  const [dialogo, setDialogo] = useState<'archivar' | 'borrar' | 'calendario' | 'descartar' | null>(null)
+
+  // Lo que se ve en el formulario, para saber si hay cambios sin guardar al volver.
+  const foto = JSON.stringify({
+    nombre, formaCobro, pctTexto, diaCierre, desdeTexto, hastaTexto,
+    filas: filas.map((f) => [f.id ?? null, f.nombre, f.precio, !!f.precioInvalido]),
+  })
+  const [fotoInicial] = useState(foto)
+  const hayCambios = foto !== fotoInicial
+
+  function volver(e: MouseEvent) {
+    if (!hayCambios || guardando) return
+    e.preventDefault()
+    setDialogo('descartar')
+  }
 
   // ---- Validación ----
   const esPorcentaje = formaCobro === 'PORCENTAJE'
@@ -245,7 +260,7 @@ function Formulario({ datos }: { datos: Datos | null }) {
 
   return (
     <section>
-      <Encabezado titulo={lugar ? 'Configurar lugar' : 'Nuevo lugar'} />
+      <Encabezado titulo={lugar ? 'Configurar lugar' : 'Nuevo lugar'} onVolver={volver} />
 
       <form ref={formRef} onSubmit={guardar} noValidate>
         <Card>
@@ -450,6 +465,17 @@ function Formulario({ datos }: { datos: Datos | null }) {
           confirmar="Borrar"
           peligro
           onConfirm={borrar}
+          onCancel={() => setDialogo(null)}
+        />
+      )}
+      {dialogo === 'descartar' && (
+        <ConfirmDialog
+          titulo="¿Descartar los cambios?"
+          texto="Lo que cambiaste en este lugar no se guardó."
+          confirmar="Descartar"
+          cancelar="Seguir editando"
+          peligro
+          onConfirm={() => navigate('/lugares')}
           onCancel={() => setDialogo(null)}
         />
       )}
