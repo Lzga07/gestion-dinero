@@ -50,6 +50,13 @@ export function mesClave(f: FechaISO): string {
   return f.slice(0, 7);
 }
 
+/** Mes `n` meses después (o antes, si `n` es negativo) de `mes` ('YYYY-MM'). */
+export function moverMes(mes: string, n: number): string {
+  const { y, m } = parseFecha(`${mes}-01`);
+  const r = sumarMeses(y, m, n);
+  return mesClave(aFecha(r.y, r.m, 1));
+}
+
 /** Días de `a` a `b` (positivo si b es posterior). */
 export function diasEntre(a: FechaISO, b: FechaISO): number {
   const pa = parseFecha(a);

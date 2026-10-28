@@ -9,10 +9,10 @@ import { pesosJuntos } from '../pesos'
 import Movimientos from './Movimientos'
 import { anotar } from './periodo/test-fixtures'
 
-function renderMovimientos() {
+function renderMovimientos(ruta = '/movimientos') {
   const user = userEvent.setup()
   render(
-    <MemoryRouter initialEntries={['/movimientos']}>
+    <MemoryRouter initialEntries={[ruta]}>
       <Routes>
         <Route path="/movimientos" element={<Movimientos />} />
         <Route path="/trabajo/nuevo" element={<h1>Pantalla trabajo nuevo</h1>} />
@@ -124,6 +124,32 @@ describe('filtro', () => {
 
     await user.click(screen.getByRole('button', { name: 'Todo' }))
     expect(screen.getAllByRole('link')).toHaveLength(4)
+  })
+})
+
+describe('mes y filtro desde la dirección', () => {
+  test('?mes=2026-09&filtro=GASTOS abre septiembre mostrando solo gastos', async () => {
+    await escenario()
+    const lugarId = await lugarFijo('ULTIMO', 'Otro lugar')
+    const combustible = await guardarCategoria({ nombre: 'Combustible', tipo: 'GASTO', ambito: 'TRABAJO', icono: '⛽', color: '', orden: 3 })
+    await guardarMovimiento({ tipo: 'GASTO', fecha: '2026-09-12', monto: 500000, categoriaId: combustible, nota: '' })
+    await anotar(lugarId, '2026-09-13', 'Trabajo de septiembre', 1000)
+    renderMovimientos('/movimientos?mes=2026-09&filtro=GASTOS')
+
+    expect(await screen.findByText('Septiembre 2026')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /Combustible/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Gastos' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('link', { name: /Septiembre|Trabajo de septiembre/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Materiales/ })).not.toBeInTheDocument()
+  })
+
+  test('valores inválidos se ignoran y quedan el mes actual y Todo', async () => {
+    await escenario()
+    renderMovimientos('/movimientos?mes=2026-13&filtro=CUALQUIERA')
+
+    expect(await screen.findByText('Octubre 2026')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Todo' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('link', { name: /Arreglo/ })).toBeInTheDocument()
   })
 })
 

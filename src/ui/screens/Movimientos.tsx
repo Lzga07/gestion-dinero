@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { db } from '../../data/db'
-import { mesClave, nombreMes, parseFecha, sumarMeses, aFecha } from '../../domain/dates'
+import { mesClave, moverMes, nombreMes } from '../../domain/dates'
 import type { Categoria, Lugar, Movimiento, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
@@ -24,12 +24,7 @@ const FILTROS: { valor: Filtro; texto: string }[] = [
   { valor: 'GASTOS', texto: 'Gastos' },
 ]
 
-/** Mes anterior o siguiente a `mes` ('YYYY-MM'). */
-function moverMes(mes: string, n: number): string {
-  const { y, m } = parseFecha(`${mes}-01`)
-  const r = sumarMeses(y, m, n)
-  return mesClave(aFecha(r.y, r.m, 1))
-}
+const MES_VALIDO = /^\d{4}-(0[1-9]|1[0-2])$/
 
 function FilaMovimiento({ fila }: { fila: Fila }) {
   return (
@@ -60,8 +55,16 @@ function FilaMovimiento({ fila }: { fila: Fila }) {
 /** Movimientos: trabajos, otros ingresos y gastos del mes, agrupados por día. */
 export default function Movimientos() {
   const hoy = useHoy()
-  const [mes, setMes] = useState(() => mesClave(hoy))
-  const [filtro, setFiltro] = useState<Filtro>('TODO')
+  // Estadísticas abre esta pantalla con `?mes=YYYY-MM&filtro=GASTOS`; lo que no es válido se ignora.
+  const [params] = useSearchParams()
+  const [mes, setMes] = useState(() => {
+    const pedido = params.get('mes')
+    return pedido !== null && MES_VALIDO.test(pedido) ? pedido : mesClave(hoy)
+  })
+  const [filtro, setFiltro] = useState<Filtro>(() => {
+    const pedido = FILTROS.find((f) => f.valor === params.get('filtro'))
+    return pedido ? pedido.valor : 'TODO'
+  })
   const [menu, setMenu] = useState(false)
 
   const datos = useLiveQuery(

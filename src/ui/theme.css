@@ -1308,3 +1308,238 @@ li + li > .mov-fila {
 .segmented__input:disabled + .segmented__text {
   opacity: 0.6;
 }
+
+/* Estadísticas */
+:root {
+  /* Colores de los lugares en los gráficos: paleta fija de 6 tonos, validada sobre la tarjeta blanca
+     (separación entre vecinos incluso con daltonismo, contraste >= 3:1). Cada lugar conserva el suyo. */
+  --lugar-1: #00856e;
+  --lugar-2: #d0721f;
+  --lugar-3: #3a6fc4;
+  --lugar-4: #b04b82;
+  --lugar-5: #7a8f1a;
+  --lugar-6: #6c55c4;
+}
+
+.estadisticas .pestanas {
+  margin-bottom: 12px;
+}
+
+.grafico__titulo {
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.grafico__vacio {
+  margin: 0;
+}
+
+/* Barras apiladas por mes */
+.barras {
+  position: relative;
+  padding-top: 20px;
+}
+
+.barras__tope {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.barras__columnas {
+  display: flex;
+  gap: 2px;
+}
+
+.barras__col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 2px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.barras__col[aria-pressed='true'] {
+  background: var(--seg-bg);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.barras__col:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.barras__area {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 128px;
+  border-bottom: 1px solid var(--line);
+}
+
+.barras__pila {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px; /* separación entre segmentos con el color de la tarjeta */
+  width: 100%;
+  max-width: 28px;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+}
+
+.barras__segmento {
+  flex: 1 1 0;
+  min-height: 2px;
+  background: var(--color-lugar);
+}
+
+.barras__mes {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+}
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  color: var(--text);
+}
+
+.leyenda__muestra {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 3px;
+  background: var(--color-lugar);
+}
+
+.desglose {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.desglose__cabecera {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.desglose__titulo {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.desglose__total {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.desglose__lista {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.desglose__fila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9375rem;
+}
+
+.desglose__nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.desglose__monto {
+  flex: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Barras horizontales: ranking de gastos */
+.ranking {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ranking__fila {
+  display: block;
+  min-height: 44px;
+  padding: 6px 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.ranking__fila:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.ranking__texto {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.875rem;
+}
+
+.ranking__nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ranking__monto {
+  flex: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ranking__pista {
+  display: block;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 4px;
+  background: var(--seg-bg);
+  overflow: hidden;
+}
+
+.ranking__relleno {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--neg);
+}
