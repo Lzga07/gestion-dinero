@@ -160,6 +160,41 @@ describe('hacer copia', () => {
   })
 })
 
+describe('hacer copia: validación del archivo', () => {
+  test('si el archivo preparado no pasaría la restauración, no se comparte y se avisa', async () => {
+    // Un trabajo cuyo lugar no existe: leerCopia lo rechazaría al restaurar.
+    const lugarId = await lugarFijo()
+    const trabajoId = await anotarTrabajo(lugarId, '2026-10-20')
+    await db.trabajos.update(trabajoId, { lugarId: 'lugar-que-no-existe' })
+    compartir.mockResolvedValue('compartido')
+    const user = renderCopia()
+
+    const alerta = await screen.findByRole('alert')
+    expect(alerta).toHaveTextContent(
+      'No pudimos armar una copia válida: la copia tiene un trabajo que apunta a un lugar que no existe. Avisanos.',
+    )
+    const boton = screen.getByRole('button', { name: 'Hacer copia' })
+    expect(boton).toBeDisabled()
+    await user.click(boton)
+    expect(compartir).not.toHaveBeenCalled()
+    expect(screen.queryByText('Copia guardada')).not.toBeInTheDocument()
+    expect(await leerAjuste<string | null>('ultimaCopia', null)).toBeNull()
+  })
+
+  test('con un tipo de trabajo borrado la copia se arma y se comparte igual', async () => {
+    const lugarId = await lugarFijo()
+    const trabajoId = await anotarTrabajo(lugarId, '2026-10-20')
+    await db.trabajos.update(trabajoId, { tipoTrabajoId: 'tipo-borrado' })
+    compartir.mockResolvedValue('compartido')
+    const user = renderCopia()
+
+    await user.click(await screen.findByRole('button', { name: 'Hacer copia' }))
+
+    expect(compartir).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
 describe('restaurar copia', () => {
   test('un archivo inválido muestra el error y no toca los datos', async () => {
     await lugarFijo()

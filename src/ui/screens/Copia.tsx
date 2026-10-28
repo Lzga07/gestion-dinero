@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useRef, useState } from 'react'
 import { guardarAjuste, leerAjuste } from '../../data/ajustes'
 import { exportarDatos } from '../../data/copia'
-import { armarCopia, nombreArchivoCopia, type Datos } from '../../domain/copia'
+import { armarCopia, leerCopia, nombreArchivoCopia, type Datos } from '../../domain/copia'
 import type { FechaISO } from '../../domain/dates'
 import { compartirArchivo } from '../../platform/compartir'
 import Button from '../components/Button'
@@ -33,10 +33,24 @@ function useEstado() {
   )
 }
 
-/** El archivo de copia, ya armado: así "Hacer copia" abre el menú de compartir directo desde el toque. */
-function armarArchivo(datos: Datos, hoy: FechaISO): File {
+type Preparado = { ok: true; archivo: File } | { ok: false; error: string }
+
+/** "La copia tiene…" → "la copia tiene…", siempre con punto final. */
+function motivo(error: string): string {
+  const t = error.charAt(0).toLowerCase() + error.slice(1)
+  return t.endsWith('.') ? t : `${t}.`
+}
+
+/**
+ * El archivo de copia, ya armado y validado con la misma lectura que usa "Restaurar": así "Hacer copia" abre
+ * el menú de compartir directo desde el toque (Safari) y nunca se guarda una copia que después no se pueda
+ * restaurar.
+ */
+function prepararArchivo(datos: Datos, hoy: FechaISO): Preparado {
   const json = JSON.stringify(armarCopia(datos, new Date()))
-  return new File([json], nombreArchivoCopia(hoy), { type: 'application/json' })
+  const prueba = leerCopia(json)
+  if (!prueba.ok) return { ok: false, error: `No pudimos armar una copia válida: ${motivo(prueba.error)} Avisanos.` }
+  return { ok: true, archivo: new File([json], nombreArchivoCopia(hoy), { type: 'application/json' }) }
 }
 
 /** Copia de seguridad (`/mas/copia`): hacer la copia, restaurarla y elegir cada cuánto recordarla. */
@@ -45,7 +59,8 @@ export default function Copia() {
   const hoy = useHoy()
   const estado = useEstado()
   const datos = estado?.datos
-  const archivo = useMemo(() => (datos ? armarArchivo(datos, hoy) : null), [datos, hoy])
+  const preparado = useMemo(() => (datos ? prepararArchivo(datos, hoy) : null), [datos, hoy])
+  const archivo = preparado?.ok ? preparado.archivo : null
   const ocupado = useRef(false)
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -90,11 +105,16 @@ export default function Copia() {
           copia en tu Drive o en Archivos para poder recuperarlos.
         </p>
         <Button block disabled={!archivo} onClick={hacerCopia}>
-          {archivo ? 'Hacer copia' : 'Preparando…'}
+          {preparado ? 'Hacer copia' : 'Preparando…'}
         </Button>
         <p className="copia__estado" role="status">
           {mensaje}
         </p>
+        {preparado?.ok === false && (
+          <p className="field__error copia__error" role="alert">
+            {preparado.error}
+          </p>
+        )}
         {error && (
           <p className="field__error copia__error" role="alert">
             {error}

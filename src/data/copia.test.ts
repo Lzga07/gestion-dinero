@@ -1,14 +1,15 @@
-import { beforeEach, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { type Copia, armarCopia, leerCopia } from '../domain/copia';
 import { guardarAjuste, leerAjuste } from './ajustes';
-import { guardarCategoria } from './categorias';
+import { borrarCategoria, guardarCategoria } from './categorias';
 import { ErrorDatos, exportarDatos, restaurarDatos } from './copia';
 import { db } from './db';
 import { ErrorDatos as ErrorDeModulo } from './errores';
-import { guardarTipoTrabajo } from './lugares';
+import { archivarLugar, borrarLugar, borrarTipoTrabajo, guardarLugarConTipos, guardarTipoTrabajo } from './lugares';
 import { guardarMovimiento } from './movimientos';
-import { registrarPago } from './pagos';
+import { borrarPago, registrarPago } from './pagos';
 import { anotarTrabajo, lugarFijo, reiniciarDb } from './test-helpers';
+import { guardarTrabajo } from './trabajos';
 
 beforeEach(reiniciarDb);
 
@@ -147,4 +148,56 @@ test('restaurarDatos con error a mitad no toca los datos existentes', async () =
   expect(await contar()).toEqual(conteo);
   expect(await exportarDatos()).toEqual(antes);
   expect(await leerAjuste('pinHash', null)).toBe('mi-pin');
+});
+
+describe('después de borrar o reasignar, la copia se puede restaurar y deja los mismos datos', () => {
+  /** Base con un poco de todo: lugar fijo con dos tipos, trabajos con tipo, pago, categorías y movimientos. */
+  async function base() {
+    const lugarId = await lugarFijo('ULTIMO', 'Clínica Norte');
+    const sinHistorial = await lugarFijo('ULTIMO', 'Lugar vacío');
+    await guardarTipoTrabajo({ lugarId: sinHistorial, nombre: 'Consulta', precio: 1000, orden: 0 });
+    const limpieza = await guardarTipoTrabajo({ lugarId, nombre: 'Limpieza', precio: 5000, orden: 0 });
+    const arreglo = await guardarTipoTrabajo({ lugarId, nombre: 'Arreglo', precio: 7000, orden: 1 });
+    const conTipo = async (tipoId: string, fecha: string, nombre: string, precio: number) =>
+      (await guardarTrabajo({
+        lugarId, fecha, descripcion: nombre, tipoTrabajoId: tipoId, precioLista: precio,
+        montoCliente: null, descuento: null, descuentoMotivo: null, porcentajeBp: null, monto: precio, nota: '',
+      })).id;
+    const t1 = await conTipo(limpieza, '2026-09-05', 'Limpieza', 5000);
+    const t2 = await conTipo(arreglo, '2026-09-06', 'Arreglo', 7000);
+    await conTipo(limpieza, '2026-10-05', 'Limpieza', 5000);
+    const pagoId = await registrarPago({
+      lugarId, periodoFin: '2026-09-30', fecha: '2026-10-25', monto: 12000, tipo: 'FINAL', nota: '',
+      tildados: [t1, t2], destildados: [],
+    });
+    const ocio = await guardarCategoria({ nombre: 'Ocio', tipo: 'GASTO', ambito: 'PERSONAL', icono: '🎬', color: '#6a5acd', orden: 0 });
+    const salud = await guardarCategoria({ nombre: 'Salud', tipo: 'GASTO', ambito: 'PERSONAL', icono: '💊', color: '#6a5acd', orden: 1 });
+    await guardarMovimiento({ tipo: 'GASTO', fecha: '2026-10-05', monto: 1500, categoriaId: ocio, nota: '' });
+    return { lugarId, sinHistorial, limpieza, arreglo, pagoId, ocio, salud };
+  }
+
+  test.each<[string, (b: Awaited<ReturnType<typeof base>>) => Promise<unknown>]>([
+    ['borrar un tipo de trabajo', (b) => borrarTipoTrabajo(b.limpieza)],
+    ['quitar un tipo de la lista del lugar', (b) =>
+      guardarLugarConTipos({
+        id: b.lugarId, hoy: '2026-10-27',
+        datos: { nombre: 'Clínica Norte', formaCobro: 'ARANCEL_FIJO', porcentajeBp: null, pagoDesdeDia: 21, pagoHastaDia: 31, diaCierre: 'ULTIMO' },
+        tipos: [{ id: b.arreglo, nombre: 'Arreglo', precio: 7000 }],
+      })],
+    ['borrar una categoría pasando sus movimientos a otra', (b) => borrarCategoria(b.ocio, b.salud)],
+    ['borrar un pago', (b) => borrarPago(b.pagoId)],
+    ['archivar un lugar', (b) => archivarLugar(b.lugarId, true)],
+    ['borrar un lugar sin historial', (b) => borrarLugar(b.sinHistorial)],
+  ])('%s', async (_, operacion) => {
+    const b = await base();
+    await operacion(b);
+    const antes = await exportarDatos();
+
+    const leida = leerCopia(JSON.stringify(armarCopia(antes, new Date('2026-10-27T10:00:00Z'))));
+    if (!leida.ok) throw new Error(leida.error);
+    await reiniciarDb();
+    await restaurarDatos(leida.copia);
+
+    expect(await exportarDatos()).toEqual(antes);
+  });
 });

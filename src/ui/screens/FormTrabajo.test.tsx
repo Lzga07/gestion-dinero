@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { leerAjuste, guardarAjuste } from '../../data/ajustes'
 import { db } from '../../data/db'
-import { crearLugar, guardarTipoTrabajo } from '../../data/lugares'
+import { borrarTipoTrabajo, crearLugar, guardarTipoTrabajo } from '../../data/lugares'
 import * as datosPagos from '../../data/pagos'
 import { registrarPago } from '../../data/pagos'
 import * as datosTrabajos from '../../data/trabajos'
@@ -418,6 +418,25 @@ describe('editar', () => {
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
     expect(await db.trabajos.get(trabajoId)).toMatchObject({ monto: 3800000, precioLista: 3800000, nota: 'revisar' })
+  })
+
+  test('un trabajo cuyo tipo se borró se edita como "Otro…" y conserva descripción y monto', async () => {
+    const { id, tipoId } = await lugarConArreglo()
+    const trabajoId = await anotarTrabajo(id, '2026-10-05', 3800000)
+    await db.trabajos.update(trabajoId, { descripcion: 'Arreglo', tipoTrabajoId: tipoId, precioLista: 3800000 })
+    await borrarTipoTrabajo(tipoId)
+
+    const user = renderEn(`/trabajo/${trabajoId}`)
+    expect(await screen.findByRole('radio', { name: 'Otro…' })).toBeChecked()
+    expect(screen.getByLabelText('Descripción')).toHaveValue('Arreglo')
+    expect(screen.getByLabelText('Monto que te corresponde')).toHaveValue('$ 38.000')
+    await user.type(screen.getByLabelText('Nota (opcional)'), 'revisar')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({
+      descripcion: 'Arreglo', monto: 3800000, tipoTrabajoId: null, nota: 'revisar',
+    })
   })
 
   test('un trabajo que ya está en un pago muestra el aviso', async () => {

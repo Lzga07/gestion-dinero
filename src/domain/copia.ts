@@ -175,11 +175,14 @@ const TABLAS: Tabla[] = [
 /** Campo que identifica a cada fila (los ajustes se identifican por `clave`). */
 const campoId = (t: Tabla) => (t.clave === 'ajustes' ? 'clave' : 'id');
 
-/** Referencias entre tablas: [tabla de origen, campo, tabla destino, "un X" para el mensaje, admite null]. */
+/**
+ * Referencias entre tablas: [tabla de origen, campo, tabla destino, "un X" para el mensaje, admite null].
+ * `trabajos.tipoTrabajoId` no está: un trabajo guarda su propia copia del precio y la descripción, así que
+ * un tipo borrado no es un error (ver `sinTiposColgados`).
+ */
 const REFERENCIAS: [keyof Datos, string, keyof Datos, string, boolean][] = [
   ['trabajos', 'lugarId', 'lugares', 'un lugar', false],
   ['trabajos', 'pagoId', 'pagos', 'un pago', true],
-  ['trabajos', 'tipoTrabajoId', 'tiposTrabajo', 'un tipo de trabajo', true],
   ['movimientos', 'categoriaId', 'categorias', 'una categoría', false],
   ['tiposTrabajo', 'lugarId', 'lugares', 'un lugar', false],
   ['pagos', 'lugarId', 'lugares', 'un lugar', false],
@@ -224,6 +227,21 @@ function validarDatos(datos: Record<string, unknown>): string | null {
   return null;
 }
 
+/**
+ * Un trabajo cuyo tipo de trabajo ya no existe queda sin tipo (`null`), con su monto, descripción y precio
+ * intactos. Hasta este arreglo, borrar un tipo dejaba la referencia colgada en sus trabajos: así se pueden
+ * restaurar las copias hechas con ese error. No modifica `datos`.
+ */
+function sinTiposColgados(datos: Datos): Datos {
+  const tipos = new Set(datos.tiposTrabajo.map(t => t.id));
+  if (datos.trabajos.every(tr => tr.tipoTrabajoId === null || tipos.has(tr.tipoTrabajoId))) return datos;
+  return {
+    ...datos,
+    trabajos: datos.trabajos.map(tr =>
+      tr.tipoTrabajoId === null || tipos.has(tr.tipoTrabajoId) ? tr : { ...tr, tipoTrabajoId: null }),
+  };
+}
+
 export type ResultadoLeerCopia =
   | { ok: true; copia: Copia; resumen: { creadoEn: string; lugares: number; trabajos: number; movimientos: number } }
   | { ok: false; error: string };
@@ -258,7 +276,8 @@ export function leerCopia(
     const problema = validarDatos(migrada.datos);
     if (problema) return { ok: false, error: problema };
 
-    const copia = migrada as unknown as Copia;
+    const leida = migrada as unknown as Copia;
+    const copia: Copia = { ...leida, datos: sinTiposColgados(leida.datos) };
     return {
       ok: true,
       copia,

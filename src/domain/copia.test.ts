@@ -202,12 +202,30 @@ describe('armarCopia / leerCopia', () => {
     test.each([
       ['trabajo → lugar', (c: any) => { c.datos.trabajos[0].lugarId = 'zz'; }, /trabajo que apunta a un lugar que no existe/i],
       ['trabajo → pago', (c: any) => { c.datos.trabajos[0].pagoId = 'zz'; }, /trabajo que apunta a un pago que no existe/i],
-      ['trabajo → tipo de trabajo', (c: any) => { c.datos.trabajos[0].tipoTrabajoId = 'zz'; }, /trabajo que apunta a un tipo de trabajo que no existe/i],
       ['movimiento → categoría', (c: any) => { c.datos.movimientos[0].categoriaId = 'zz'; }, /movimiento que apunta a una categoría que no existe/i],
       ['tipo de trabajo → lugar', (c: any) => { c.datos.tiposTrabajo[0].lugarId = 'zz'; }, /tipo de trabajo que apunta a un lugar que no existe/i],
       ['pago → lugar', (c: any) => { c.datos.pagos[0].lugarId = 'zz'; }, /pago que apunta a un lugar que no existe/i],
     ])('rechaza referencia rota: %s', (_, mod, msg) => {
       expect(error(copiaCon(mod))).toMatch(msg);
+    });
+
+    test('un trabajo que apunta a un tipo de trabajo borrado no es error: se restaura sin tipo, con su monto y descripción', () => {
+      // Así quedaron las copias hechas antes del arreglo: borrar un tipo dejaba la referencia colgada.
+      const texto = copiaCon(trabajoCon({ tipoTrabajoId: 'tipo-borrado' }));
+      const r = leerCopia(texto);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const esperado = { ...datosBase().trabajos[0], tipoTrabajoId: null };
+      expect(r.copia.datos.trabajos[0]).toEqual(esperado);
+      // El resto de los datos no cambia.
+      expect(r.copia.datos.trabajos[1]).toEqual(datosBase().trabajos[1]);
+      expect(r.copia.datos.tiposTrabajo).toEqual(datosBase().tiposTrabajo);
+      expect(r.resumen.trabajos).toBe(2);
+    });
+
+    test('un tipo de trabajo existente se conserva', () => {
+      const r = leerCopia(copiaCon(() => undefined));
+      expect(r.ok && r.copia.datos.trabajos[0].tipoTrabajoId).toBe('TT1');
     });
   });
 

@@ -7,7 +7,7 @@ import {
 } from './lugares';
 import { registrarPago, saldarDiferencia } from './pagos';
 import { anotarTrabajo, lugarFijo, reiniciarDb } from './test-helpers';
-import { borrarTrabajo } from './trabajos';
+import { borrarTrabajo, guardarTrabajo } from './trabajos';
 
 beforeEach(reiniciarDb);
 
@@ -191,4 +191,41 @@ test('guardarLugarConTipos edita, reordena y borra los tipos que ya no están', 
   // tipos: null no toca la lista
   await guardarLugarConTipos({ id, hoy: '2026-10-27', datos: DATOS, tipos: null });
   expect(await db.tiposTrabajo.count()).toBe(2);
+});
+
+/** Trabajo de arancel fijo anotado con un tipo de la lista. */
+async function anotarConTipo(lugarId: string, tipoId: string, fecha: string, nombre: string, precio: number) {
+  const { id } = await guardarTrabajo({
+    lugarId, fecha, descripcion: nombre, tipoTrabajoId: tipoId, precioLista: precio,
+    montoCliente: null, descuento: null, descuentoMotivo: null, porcentajeBp: null, monto: precio, nota: 'Ana',
+  });
+  return id;
+}
+
+test('borrarTipoTrabajo deja sin tipo a sus trabajos, con monto, descripción y precio intactos', async () => {
+  const lugarId = await lugarFijo();
+  const tipoId = await guardarTipoTrabajo({ lugarId, nombre: 'Limpieza', precio: 5000, orden: 0 });
+  const otroTipo = await guardarTipoTrabajo({ lugarId, nombre: 'Arreglo', precio: 7000, orden: 1 });
+  const t1 = await anotarConTipo(lugarId, tipoId, '2026-10-05', 'Limpieza', 5000);
+  const t2 = await anotarConTipo(lugarId, otroTipo, '2026-10-06', 'Arreglo', 7000);
+  const antes = (await db.trabajos.get(t1))!;
+
+  await borrarTipoTrabajo(tipoId);
+
+  expect(await db.trabajos.get(t1)).toEqual({ ...antes, tipoTrabajoId: null });
+  expect((await db.trabajos.get(t2))!.tipoTrabajoId).toBe(otroTipo);
+});
+
+test('guardarLugarConTipos: quitar un tipo de la lista deja sin tipo a sus trabajos', async () => {
+  const id = await lugarFijo();
+  const a = await guardarTipoTrabajo({ lugarId: id, nombre: 'Limpieza', precio: 2500000, orden: 0 });
+  const b = await guardarTipoTrabajo({ lugarId: id, nombre: 'Arreglo', precio: 3800000, orden: 1 });
+  const ta = await anotarConTipo(id, a, '2026-10-05', 'Limpieza', 2500000);
+  const tb = await anotarConTipo(id, b, '2026-10-06', 'Arreglo', 3800000);
+  const antes = (await db.trabajos.get(tb))!;
+
+  await guardarLugarConTipos({ id, hoy: '2026-10-27', datos: DATOS, tipos: [{ id: a, nombre: 'Limpieza', precio: 2500000 }] });
+
+  expect((await db.trabajos.get(ta))!.tipoTrabajoId).toBe(a);
+  expect(await db.trabajos.get(tb)).toEqual({ ...antes, tipoTrabajoId: null });
 });

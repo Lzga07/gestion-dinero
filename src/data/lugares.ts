@@ -62,9 +62,16 @@ export async function guardarTipoTrabajo(t: Omit<TipoTrabajo, 'id'> & { id?: str
   return id;
 }
 
-/** Los trabajos ya anotados conservan su copia del precio y no se tocan. */
+/**
+ * Borra el tipo y, en la misma transacción, deja sin tipo (`tipoTrabajoId: null`) a sus trabajos: conservan
+ * su descripción, su precio de lista y su monto, así que en pantalla se ven como "Otro…" con lo que tenían.
+ * Sin esto quedaría una referencia colgada que la copia de seguridad no podría restaurar.
+ */
 export async function borrarTipoTrabajo(id: string): Promise<void> {
-  await db.tiposTrabajo.delete(id);
+  await db.transaction('rw', db.tiposTrabajo, db.trabajos, async () => {
+    await db.trabajos.filter(tr => tr.tipoTrabajoId === id).modify({ tipoTrabajoId: null });
+    await db.tiposTrabajo.delete(id);
+  });
 }
 
 export type DatosLugar = Parameters<typeof crearLugar>[0];
@@ -78,7 +85,7 @@ export interface TipoEnForm { id?: string; nombre: string; precio: number }
 export async function guardarLugarConTipos(
   args: { id?: string; datos: DatosLugar; tipos: TipoEnForm[] | null; hoy: FechaISO },
 ): Promise<string> {
-  return db.transaction('rw', db.lugares, db.tiposTrabajo, async () => {
+  return db.transaction('rw', db.lugares, db.tiposTrabajo, db.trabajos, async () => {
     let id: string;
     if (args.id) {
       id = args.id;
