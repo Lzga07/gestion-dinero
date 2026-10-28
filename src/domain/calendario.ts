@@ -1,4 +1,4 @@
-import { type FechaISO, aFecha, diasEnMes, parseFecha, sumarMeses } from './dates';
+import { type FechaISO, diaAcotado, parseFecha, sumarMeses } from './dates';
 import { slug } from './texto';
 import type { Lugar } from './types';
 
@@ -32,21 +32,36 @@ function plegar(linea: string): string {
   return partes.join(CRLF + ' ');
 }
 
-/** Primera fecha >= hoy en que cae el recordatorio. */
+/** Primera fecha >= hoy en que cae el recordatorio: el día `hastaDia`, o el último del mes si no existe. */
 function proximaOcurrencia(hastaDia: number, hoy: FechaISO): FechaISO {
-  const { y, m, d } = parseFecha(hoy);
-  if (hastaDia >= 29) return aFecha(y, m, diasEnMes(y, m));
-  if (hastaDia >= d) return aFecha(y, m, hastaDia);
+  const { y, m } = parseFecha(hoy);
+  const delMes = diaAcotado(y, m, hastaDia);
+  if (delMes >= hoy) return delMes;
   const sig = sumarMeses(y, m, 1);
-  return aFecha(sig.y, sig.m, hastaDia);
+  return diaAcotado(sig.y, sig.m, hastaDia);
 }
 
 /**
- * Evento mensual a las 10:00 (hora flotante) el último día del rango de pago del lugar,
- * con una alarma en el momento. Si `hastaDia >= 29` se repite el último día de cada mes.
+ * Regla de repetición (RFC 5545) que cae cada mes en min(`hastaDia`, último día del mes), igual que
+ * `ventanaPago`:
+ * - 1 a 28: existe en todos los meses → `BYMONTHDAY=<día>`.
+ * - 31: el último día de cada mes → `BYMONTHDAY=-1`.
+ * - 29 y 30: `BYMONTHDAY=28,…,<día>;BYSETPOS=-1`. Los días que no existen en un mes se ignoran
+ *   (§3.3.10) y BYSETPOS=-1 elige el mayor de los que quedan: febrero → 28 (29 si es bisiesto), un mes de
+ *   30 → 29 o 30, uno de 31 → 29 o 30 (nunca el 31). El 28 está en todos los meses, así que siempre hay uno.
+ */
+export function reglaMensual(hastaDia: number): string {
+  if (hastaDia <= 28) return `FREQ=MONTHLY;BYMONTHDAY=${hastaDia}`;
+  if (hastaDia >= 31) return 'FREQ=MONTHLY;BYMONTHDAY=-1';
+  const dias = Array.from({ length: hastaDia - 27 }, (_, i) => 28 + i).join(',');
+  return `FREQ=MONTHLY;BYMONTHDAY=${dias};BYSETPOS=-1`;
+}
+
+/**
+ * Evento mensual a las 10:00 (hora flotante) el último día del rango de pago del lugar (acotado al fin de
+ * cada mes), con una alarma en el momento.
  */
 export function armarIcsLugar(lugar: Lugar, hoy: FechaISO): string {
-  const ultimoDia = lugar.pagoHastaDia >= 29;
   const inicio = proximaOcurrencia(lugar.pagoHastaDia, hoy).replaceAll('-', '');
   const texto = `Revisar pago de ${escaparTexto(lugar.nombre)}`;
   const lineas = [
@@ -58,7 +73,7 @@ export function armarIcsLugar(lugar: Lugar, hoy: FechaISO): string {
     `DTSTAMP:${hoy.replaceAll('-', '')}T000000Z`,
     `DTSTART:${inicio}T100000`,
     'DURATION:PT30M',
-    `RRULE:FREQ=MONTHLY;BYMONTHDAY=${ultimoDia ? -1 : lugar.pagoHastaDia}`,
+    `RRULE:${reglaMensual(lugar.pagoHastaDia)}`,
     `SUMMARY:${texto}`,
     'BEGIN:VALARM',
     'ACTION:DISPLAY',

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { armarIcsLugar, nombreArchivoCalendario } from './calendario';
+import { aFecha, diaAcotado, diasEnMes } from './dates';
 import { INICIO_DE_LOS_TIEMPOS } from './periodos';
 import type { Lugar } from './types';
 
@@ -53,10 +54,56 @@ describe('armarIcsLugar', () => {
     expect(armarIcsLugar({ ...lugar, pagoHastaDia: 5 }, '2026-12-20')).toContain('DTSTART:20270105T100000');
   });
 
-  test('día 29 o más usa el último día del mes (febrero incluido)', () => {
-    const ics = armarIcsLugar({ ...lugar, pagoHastaDia: 29 }, '2027-02-10');
-    expect(ics).toContain('RRULE:FREQ=MONTHLY;BYMONTHDAY=-1');
-    expect(ics).toContain('DTSTART:20270228T100000');
+  test('día 29 o 30: el mayor de 28…N que exista en el mes (BYSETPOS=-1), no el 31', () => {
+    const ics29 = armarIcsLugar({ ...lugar, pagoHastaDia: 29 }, '2027-02-10');
+    expect(ics29).toContain('RRULE:FREQ=MONTHLY;BYMONTHDAY=28,29;BYSETPOS=-1');
+    expect(ics29).toContain('DTSTART:20270228T100000');
+    const ics30 = armarIcsLugar({ ...lugar, pagoHastaDia: 30 }, '2026-10-27');
+    expect(ics30).toContain('RRULE:FREQ=MONTHLY;BYMONTHDAY=28,29,30;BYSETPOS=-1');
+    expect(ics30).toContain('DTSTART:20261030T100000'); // octubre tiene 31: el 30, no el 31
+  });
+
+  test('DTSTART es la primera ocurrencia: con hoy después del día acotado, el mes siguiente', () => {
+    expect(armarIcsLugar({ ...lugar, pagoHastaDia: 30 }, '2026-10-31')).toContain('DTSTART:20261130T100000');
+    expect(armarIcsLugar({ ...lugar, pagoHastaDia: 30 }, '2027-01-31')).toContain('DTSTART:20270228T100000');
+    expect(armarIcsLugar({ ...lugar, pagoHastaDia: 31 }, '2027-02-28')).toContain('DTSTART:20270228T100000');
+  });
+
+  describe('la regla cae siempre en min(día, último día del mes)', () => {
+    /** Expande FREQ=MONTHLY con BYMONTHDAY (y BYSETPOS) según RFC 5545 §3.3.10, para los meses pedidos. */
+    function ocurrencias(ics: string, meses: [number, number][]): string[] {
+      const regla = /RRULE:(.*)/.exec(ics.replace(/\r\n /g, ''))![1].trim();
+      const partes = Object.fromEntries(regla.split(';').map(p => p.split('=')));
+      expect(partes.FREQ).toBe('MONTHLY');
+      const dias = String(partes.BYMONTHDAY).split(',').map(Number);
+      return meses.map(([y, m]) => {
+        const ultimo = diasEnMes(y, m);
+        // Un BYMONTHDAY que no existe en el mes (p. ej. 30 en febrero) se ignora.
+        const set = [...new Set(dias.map(d => (d < 0 ? ultimo + 1 + d : d)).filter(d => d >= 1 && d <= ultimo))].sort((a, b) => a - b);
+        const pos = partes.BYSETPOS === undefined ? null : Number(partes.BYSETPOS);
+        const elegidos = pos === null ? set : [set[pos > 0 ? pos - 1 : set.length + pos]];
+        expect(elegidos).toHaveLength(1);
+        return aFecha(y, m, elegidos[0]);
+      });
+    }
+    const MESES: [number, number][] = [[2027, 2], [2028, 2], [2027, 4], [2027, 5]]; // feb (28), feb bisiesto (29), abr (30), may (31)
+
+    test.each([
+      [29, ['2027-02-28', '2028-02-29', '2027-04-29', '2027-05-29']],
+      [30, ['2027-02-28', '2028-02-29', '2027-04-30', '2027-05-30']],
+      [31, ['2027-02-28', '2028-02-29', '2027-04-30', '2027-05-31']],
+      [28, ['2027-02-28', '2028-02-28', '2027-04-28', '2027-05-28']],
+    ])('día %i en feb, feb bisiesto, abr y may', (dia, esperado) => {
+      expect(ocurrencias(armarIcsLugar({ ...lugar, pagoHastaDia: dia }, '2026-10-01'), MESES)).toEqual(esperado);
+    });
+
+    test('para todos los días de 1 a 31, durante dos años', () => {
+      const meses: [number, number][] = Array.from({ length: 24 }, (_, i) => [2027 + Math.floor(i / 12), (i % 12) + 1]);
+      for (let dia = 1; dia <= 31; dia++) {
+        const ics = armarIcsLugar({ ...lugar, pagoHastaDia: dia }, '2026-10-01');
+        expect(ocurrencias(ics, meses)).toEqual(meses.map(([y, m]) => diaAcotado(y, m, dia)));
+      }
+    });
   });
 
   test('escapa coma, punto y coma, barra y saltos de línea del nombre', () => {

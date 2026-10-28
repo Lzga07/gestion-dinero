@@ -17,7 +17,7 @@ function descargar(archivo: File): void {
 
 /**
  * Abre el menú de compartir del celular con el archivo (Web Share API); si el navegador no puede compartir
- * archivos, lo descarga. Tiene que llamarse directo desde el toque del usuario, con el archivo ya armado:
+ * archivos o el menú falla, lo descarga. Solo "cancelado" (la persona cerró el menú) no descarga. Tiene que llamarse directo desde el toque del usuario, con el archivo ya armado:
  * Safari de iPhone rechaza `share` si pasa trabajo asincrónico pesado entre el toque y la llamada.
  * Esa misma capa se cambia por la versión nativa más adelante.
  */
@@ -29,8 +29,9 @@ export async function compartirArchivo(archivo: File, titulo: string): Promise<R
     } catch (e) {
       const nombre = e instanceof DOMException ? e.name : ''
       if (nombre === 'AbortError') return 'cancelado'
-      // Safari rechaza `share` fuera del gesto del usuario: se descarga el archivo en su lugar.
-      if (nombre !== 'NotAllowedError') throw e
+      // Cualquier otra falla (Safari rechaza `share` fuera del gesto del usuario con NotAllowedError, otros
+      // navegadores fallan con DataError o TypeError): se descarga el archivo para que no se pierda.
+      if (nombre !== 'NotAllowedError') console.warn('El menú de compartir falló; se descarga el archivo', e)
     }
   }
   descargar(archivo)

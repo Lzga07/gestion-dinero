@@ -98,8 +98,10 @@ describe('filasListado', () => {
 
     const filas = filasListado(d)
 
-    expect(filas.map((f) => f[1])).toEqual(['Extracción', 'Diferencia en pago del 25/09: $ 5.000', 'Arreglo'])
-    expect(filas[1]).toEqual(['25/09', 'Diferencia en pago del 25/09: $ 5.000', '', '', '', '$ 5.000'])
+    // El reclamo junta períodos de distintos meses (y años): las fechas llevan el año.
+    expect(filas.map((f) => f[0])).toEqual(['10/08/2026', '25/09/2026', '29/09/2026'])
+    expect(filas.map((f) => f[1])).toEqual(['Extracción', 'Diferencia en pago del 25/09/2026: $ 5.000', 'Arreglo'])
+    expect(filas[1]).toEqual(['25/09/2026', 'Diferencia en pago del 25/09/2026: $ 5.000', '', '', '', '$ 5.000'])
     expect(filas[2][5]).toBe('$ 38.000')
   })
 })

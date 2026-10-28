@@ -71,9 +71,12 @@ function trabajosDe(d: DatosListado): Trabajo[] {
   return d.tipo === 'RECLAMO' ? d.trabajos.filter((tr) => tr.estado === 'NO_PAGADO') : d.trabajos
 }
 
+/** El listado de un período va sin año (es uno solo); el reclamo junta varios meses y años: DD/MM/AAAA. */
+const fechaFila = (d: DatosListado, f: FechaISO) => (d.tipo === 'RECLAMO' ? fechaCompleta(f) : diaMes(f))
+
 function filaDe(d: DatosListado, celdas: { fecha: FechaISO; que: string; nota: string; pago: string; descuento: string; monto: Centavos }) {
   return [
-    diaMes(celdas.fecha),
+    fechaFila(d, celdas.fecha),
     aWinAnsi(celdas.que),
     ...(d.incluirNotas ? [aWinAnsi(celdas.nota)] : []),
     ...(conDescuento(d.lugar) ? [celdas.pago, celdas.descuento] : []),
@@ -100,7 +103,7 @@ export function filasListado(d: DatosListado): string[][] {
         fecha: deuda.fechaPago,
         fila: filaDe(d, {
           fecha: deuda.fechaPago,
-          que: `Diferencia en pago del ${diaMes(deuda.fechaPago)}: ${formatPesos(deuda.monto)}`,
+          que: `Diferencia en pago del ${fechaCompleta(deuda.fechaPago)}: ${formatPesos(deuda.monto)}`,
           nota: '', pago: '', descuento: '',
           monto: deuda.monto,
         }),

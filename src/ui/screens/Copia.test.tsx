@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { guardarAjuste, leerAjuste } from '../../data/ajustes'
+import * as datosCopia from '../../data/copia'
 import { exportarDatos } from '../../data/copia'
 import { db } from '../../data/db'
 import { crearLugar } from '../../data/lugares'
@@ -116,10 +117,11 @@ describe('hacer copia', () => {
     await user.click(await screen.findByRole('button', { name: 'Hacer copia' }))
 
     await waitFor(() => expect(compartir).toHaveBeenCalled())
-    if (seGuarda) expect(await screen.findByText('Copia guardada')).toBeInTheDocument()
+    const mensaje = resultado === 'compartido' ? 'Copia guardada' : 'Se descargó la copia: pasala a Drive o a Archivos'
+    if (seGuarda) expect(await screen.findByText(mensaje)).toBeInTheDocument()
     else await waitFor(() => expect(screen.getByRole('button', { name: 'Hacer copia' })).toBeEnabled())
     expect(await leerAjuste<string | null>('ultimaCopia', null)).toBe(seGuarda ? new Date().toISOString() : null)
-    if (!seGuarda) expect(screen.queryByText('Copia guardada')).not.toBeInTheDocument()
+    if (resultado !== 'compartido') expect(screen.queryByText('Copia guardada')).not.toBeInTheDocument()
   })
 
   test('un doble toque no abre dos veces el menú de compartir', async () => {
@@ -157,6 +159,28 @@ describe('hacer copia', () => {
       const leida = leerCopia(await leerTextoArchivo(compartir.mock.calls.at(-1)![0]))
       expect(leida.ok && leida.copia.datos.lugares.length).toBe(1)
     })
+  })
+})
+
+describe('hacer copia: si no se pueden leer los datos', () => {
+  test('avisa con "Reintentar" en vez de quedar en "Preparando…", y reintentar arma la copia', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await lugarFijo()
+    const espia = vi.spyOn(datosCopia, 'exportarDatos').mockRejectedValueOnce(new Error('IndexedDB rota'))
+    compartir.mockResolvedValue('compartido')
+    const user = renderCopia()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos leer tus datos para armar la copia.')
+    expect(screen.queryByRole('button', { name: 'Preparando…' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hacer copia' })).toBeDisabled()
+
+    espia.mockRestore()
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+    const boton = await screen.findByRole('button', { name: 'Hacer copia' })
+    await waitFor(() => expect(boton).toBeEnabled())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await user.click(boton)
+    expect(compartir).toHaveBeenCalledTimes(1)
   })
 })
 

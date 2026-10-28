@@ -41,13 +41,15 @@ describe('datosReclamo', () => {
     ])
   })
 
-  test('si hay varios pagos finales usa la fecha del último', () => {
+  test('si hay varios pagos finales usa la fecha del primero, que es el que dejó la diferencia', () => {
     const aviso: Extract<Aviso, { tipo: 'DEUDA' }> = {
       tipo: 'DEUDA', lugarId: 'l1', noPagados: [], monto: 1000000,
       deudasPlata: [{ periodo: { inicio: '2026-09-01', fin: '2026-09-30' }, monto: 1000000 }],
     }
     const pagos = [pago('p1', '2026-10-05', 1, 'FINAL'), pago('p2', '2026-10-22', 1, 'FINAL'), pago('p3', '2026-10-25', 1, 'A_CUENTA')]
 
-    expect(datosReclamo(lugar, aviso, pagos, '2026-10-27').deudasPlata[0].fechaPago).toBe('2026-10-22')
+    // p2 (después de p1) sería, p. ej., un "Ya me lo pagaron" posterior: la diferencia la dejó p1.
+    expect(datosReclamo(lugar, aviso, pagos, '2026-10-27').deudasPlata[0].fechaPago).toBe('2026-10-05')
+
   })
 })

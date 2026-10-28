@@ -82,7 +82,9 @@ export function calcularAvisos(a: {
   ];
 
   if (a.recordatorioDias > 0 && a.hayDatos) {
-    const dias = a.ultimaCopia === null ? null : diasEntre(fechaLocal(new Date(a.ultimaCopia)), a.hoy);
+    // Una fecha que no se puede leer cuenta como "nunca": mejor avisar de más que dejar de recordar la copia.
+    const cuando = a.ultimaCopia === null ? null : new Date(a.ultimaCopia);
+    const dias = cuando === null || Number.isNaN(cuando.getTime()) ? null : diasEntre(fechaLocal(cuando), a.hoy);
     if (dias === null || dias >= a.recordatorioDias) avisos.push({ tipo: 'COPIA', diasSinCopia: dias });
   }
   return avisos;

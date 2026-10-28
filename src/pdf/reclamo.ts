@@ -6,11 +6,14 @@ import type { DatosListado } from './listado'
 
 type AvisoDeuda = Extract<Aviso, { tipo: 'DEUDA' }>
 
-/** Fecha del pago FINAL que dejó la diferencia en plata del período (si hay varios, la del último). */
+/**
+ * Fecha del pago FINAL que dejó la diferencia en plata del período: el primero (por fecha y, a igual fecha,
+ * el que se registró antes). Los FINAL posteriores son cobros adicionales ("Ya me lo pagaron").
+ */
 function fechaDelPagoFinal(lugarId: string, periodo: Periodo, pagos: Pago[], respaldo: FechaISO): FechaISO {
   const finales = pagos
     .filter((p) => p.lugarId === lugarId && p.periodoFin === periodo.fin && p.tipo === 'FINAL')
-    .sort((a, b) => (a.fecha !== b.fecha ? (a.fecha < b.fecha ? 1 : -1) : a.creadoEn < b.creadoEn ? 1 : -1))
+    .sort((a, b) => (a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.creadoEn < b.creadoEn ? -1 : 1))
   return finales[0]?.fecha ?? respaldo
 }
 

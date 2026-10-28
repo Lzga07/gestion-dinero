@@ -81,11 +81,18 @@ describe('compartirArchivo', () => {
     expect(anclas).toHaveLength(1)
   })
 
-  test('un error inesperado de share no se traga', async () => {
+  test.each([
+    ['DataError', () => error('DataError')],
+    ['TypeError', () => new TypeError('no se pudo')],
+    ['un error sin nombre', () => 'raro'],
+  ])('si share falla con %s, cae a la descarga en vez de perder el archivo', async (_, falla) => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     ponerShare(async () => {
-      throw error('DataError')
+      throw falla()
     })
 
-    await expect(compartirArchivo(archivo(), 'Listado')).rejects.toMatchObject({ name: 'DataError' })
+    await expect(compartirArchivo(archivo(), 'Listado')).resolves.toBe('descargado')
+
+    expect(anclas).toHaveLength(1)
   })
 })

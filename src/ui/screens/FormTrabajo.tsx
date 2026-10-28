@@ -168,6 +168,9 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
     )
   const seleccion = tiposLugar.length === 0 ? OTRO : sel
   const tipoElegido = tiposLugar.find((t) => t.id === seleccion) ?? null
+  /** Al editar sigue elegido el mismo tipo: conserva su descripción aunque el tipo haya cambiado de nombre. */
+  const mismoTipo =
+    !!trabajo && !esPorcentaje && trabajo.lugarId === lugarId && tipoElegido !== null && tipoElegido.id === trabajo.tipoTrabajoId
   const bp =
     trabajo && trabajo.lugarId === lugarId && trabajo.porcentajeBp !== null
       ? trabajo.porcentajeBp
@@ -251,7 +254,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
         id: trabajo?.id ?? idGuardado.current ?? undefined,
         lugarId,
         fecha,
-        descripcion: res.descripcion,
+        descripcion: mismoTipo && trabajo ? trabajo.descripcion : res.descripcion,
         tipoTrabajoId: tipoElegido && !esPorcentaje ? tipoElegido.id : null,
         precioLista: tipoElegido && !esPorcentaje ? tipoElegido.precio : null,
         montoCliente: esPorcentaje ? montoCliente : null,

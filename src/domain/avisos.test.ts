@@ -140,6 +140,9 @@ describe('COPIA', () => {
     expect(copia({ recordatorioDias: 0 })).toEqual([]);
     expect(copia({ recordatorioDias: 0, ultimaCopia: '2026-01-01T10:00:00' })).toEqual([]);
   });
+  test('una fecha de última copia ilegible cuenta como nunca', () => {
+    expect(copia({ ultimaCopia: 'basura' })).toEqual([{ tipo: 'COPIA', diasSinCopia: null }]);
+  });
   test('sin datos no avisa', () => {
     expect(copia({ hayDatos: false })).toEqual([]);
   });

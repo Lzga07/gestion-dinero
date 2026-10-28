@@ -420,6 +420,32 @@ describe('editar', () => {
     expect(await db.trabajos.get(trabajoId)).toMatchObject({ monto: 3800000, precioLista: 3800000, nota: 'revisar' })
   })
 
+  test('editar un trabajo de arancel fijo no pisa su descripción con el nombre nuevo del tipo', async () => {
+    const { id, tipoId } = await lugarConArreglo()
+    const trabajoId = await anotarTrabajo(id, '2026-10-05', 3800000)
+    await db.trabajos.update(trabajoId, { descripcion: 'Arreglo', tipoTrabajoId: tipoId, precioLista: 3800000 })
+    await db.tiposTrabajo.update(tipoId, { nombre: 'Arreglo grande' })
+
+    const user = renderEn(`/trabajo/${trabajoId}`)
+    expect(await screen.findByRole('radio', { name: /Arreglo grande/ })).toBeChecked()
+    await user.type(screen.getByLabelText('Nota (opcional)'), 'revisar')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({ descripcion: 'Arreglo', tipoTrabajoId: tipoId, nota: 'revisar' })
+  })
+
+  test('si al editar elige otro tipo, la descripción pasa a ser la del tipo elegido', async () => {
+    const { id, tipoId } = await lugarConArreglo()
+    const trabajoId = await anotarTrabajo(id, '2026-10-05', 3800000)
+    await db.trabajos.update(trabajoId, { descripcion: 'Arreglo viejo', tipoTrabajoId: tipoId, precioLista: 3800000 })
+
+    const user = renderEn(`/trabajo/${trabajoId}`)
+    await user.click(await screen.findByRole('radio', { name: /Limpieza/ }))
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({ descripcion: 'Limpieza', monto: 2500000 })
+  })
+
   test('un trabajo cuyo tipo se borró se edita como "Otro…" y conserva descripción y monto', async () => {
     const { id, tipoId } = await lugarConArreglo()
     const trabajoId = await anotarTrabajo(id, '2026-10-05', 3800000)

@@ -21,17 +21,33 @@ const RECORDATORIOS = [
   { dias: 0, texto: 'Desactivado' },
 ]
 
-/** Todo lo que muestra la pantalla, siempre al día. `undefined` mientras carga. */
-function useEstado() {
-  return useLiveQuery(
-    async () => ({
-      datos: await exportarDatos(),
-      ultimaCopia: await leerAjuste<string | null>('ultimaCopia', null),
-      recordatorioDias: await leerAjuste<number>('recordatorioCopiaDias', 7),
-    }),
-    [],
-  )
+interface Estado {
+  /** null: no se pudieron leer los datos (se muestra el error con "Reintentar"). */
+  datos: Datos | null
+  ultimaCopia: string | null
+  recordatorioDias: number
 }
+
+/**
+ * Todo lo que muestra la pantalla, siempre al día. `undefined` mientras carga. Si la lectura falla no se
+ * relanza (dejaría la pantalla en blanco): vuelve `datos: null`. Cambiar `intento` vuelve a leer.
+ */
+function useEstado(intento: number) {
+  return useLiveQuery(async (): Promise<Estado> => {
+    try {
+      return {
+        datos: await exportarDatos(),
+        ultimaCopia: await leerAjuste<string | null>('ultimaCopia', null),
+        recordatorioDias: await leerAjuste<number>('recordatorioCopiaDias', 7),
+      }
+    } catch (e) {
+      console.error('No se pudieron leer los datos para la copia', e)
+      return { datos: null, ultimaCopia: null, recordatorioDias: 7 }
+    }
+  }, [intento])
+}
+
+const NO_SE_LEYO = 'No pudimos leer tus datos para armar la copia.'
 
 type Preparado = { ok: true; archivo: File } | { ok: false; error: string }
 
@@ -57,9 +73,13 @@ function prepararArchivo(datos: Datos, hoy: FechaISO): Preparado {
 export default function Copia() {
   const volver = useVolver('/mas')
   const hoy = useHoy()
-  const estado = useEstado()
+  const [intento, setIntento] = useState(0)
+  const estado = useEstado(intento)
   const datos = estado?.datos
-  const preparado = useMemo(() => (datos ? prepararArchivo(datos, hoy) : null), [datos, hoy])
+  const preparado = useMemo<Preparado | null>(
+    () => (datos ? prepararArchivo(datos, hoy) : datos === null ? { ok: false, error: NO_SE_LEYO } : null),
+    [datos, hoy],
+  )
   const archivo = preparado?.ok ? preparado.archivo : null
   const ocupado = useRef(false)
   const [mensaje, setMensaje] = useState('')
@@ -74,7 +94,8 @@ export default function Copia() {
       const resultado = await compartirArchivo(archivo, 'Copia de seguridad de Gestión Dinero')
       if (resultado !== 'cancelado') {
         await guardarAjuste('ultimaCopia', new Date().toISOString())
-        setMensaje('Copia guardada')
+        // Una descarga queda en el celular: si se borran los datos del navegador, puede irse con ellos.
+        setMensaje(resultado === 'compartido' ? 'Copia guardada' : 'Se descargó la copia: pasala a Drive o a Archivos')
       }
     } catch (e) {
       console.error('No se pudo hacer la copia', e)
@@ -99,7 +120,7 @@ export default function Copia() {
       <Encabezado titulo="Copia de seguridad" onCerrar={volver} />
 
       <Card as="section" aria-label="Hacer copia">
-        {estado && <p className="copia__ultima">{textoUltimaCopia(diasDesdeCopia(estado.ultimaCopia, hoy))}</p>}
+        {estado?.datos && <p className="copia__ultima">{textoUltimaCopia(diasDesdeCopia(estado.ultimaCopia, hoy))}</p>}
         <p className="copia__texto">
           Tus datos están solo en este celular. Si borrás la app o los datos del navegador, se pierden. Guardá la
           copia en tu Drive o en Archivos para poder recuperarlos.
@@ -115,6 +136,11 @@ export default function Copia() {
             {preparado.error}
           </p>
         )}
+        {datos === null && (
+          <Button variante="secundario" block onClick={() => setIntento((n) => n + 1)}>
+            Reintentar
+          </Button>
+        )}
         {error && (
           <p className="field__error copia__error" role="alert">
             {error}
@@ -124,7 +150,7 @@ export default function Copia() {
 
       <Restaurar />
 
-      {estado && <Recordatorio dias={estado.recordatorioDias} onCambiar={cambiarRecordatorio} />}
+      {estado?.datos && <Recordatorio dias={estado.recordatorioDias} onCambiar={cambiarRecordatorio} />}
     </section>
   )
 }
