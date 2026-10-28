@@ -1,7 +1,9 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import { db } from './db';
+import { resumenPeriodo } from '../domain/conciliacion';
+import { periodoQueContiene } from '../domain/periodos';
 import {
-  borrarPago, marcarNoPagado, noMePagaron, registrarPago, saldarDiferencia, yaMeLoPagaron,
+  borrarPago, cerrarPeriodo, marcarNoPagado, noMePagaron, registrarPago, saldarDiferencia, volverAPendiente, yaMeLoPagaron,
 } from './pagos';
 import { anotarTrabajo, lugarFijo, reiniciarDb } from './test-helpers';
 
@@ -170,4 +172,62 @@ test('saldarDiferencia crea un pago FINAL sin trabajos', async () => {
     tipo: 'FINAL', lugarId, periodoFin: '2026-10-31', fecha: '2026-12-01', monto: 2500, nota: '',
   });
   expect(await db.trabajos.where('pagoId').equals(id).count()).toBe(0);
+});
+
+test('cerrarPeriodo: pago FINAL de $ 0 y los PENDIENTE del período pasan a NO_PAGADO; lo que faltaba en plata queda como deuda', async () => {
+  const lugarId = await lugarFijo();
+  const a = await anotarTrabajo(lugarId, '2026-10-05', 10000);
+  const b = await anotarTrabajo(lugarId, '2026-10-06', 5000);
+  const c = await anotarTrabajo(lugarId, '2026-10-07', 2000);
+  const deNoviembre = await anotarTrabajo(lugarId, '2026-11-02', 3000);
+  // a y b pagados a cuenta con 9.000 de 15.000 esperados; c queda pendiente.
+  await registrarPago({ lugarId, ...pago, monto: 9000, tipo: 'A_CUENTA', tildados: [a, b], destildados: [c] });
+
+  const id = await cerrarPeriodo(lugarId, '2026-10-31', '2026-11-28');
+
+  expect(await db.pagos.get(id)).toMatchObject({
+    lugarId, periodoFin: '2026-10-31', fecha: '2026-11-28', monto: 0, tipo: 'FINAL',
+  });
+  expect(await db.trabajos.get(c)).toMatchObject({ estado: 'NO_PAGADO', pagoId: null });
+  expect(await db.trabajos.get(a)).toMatchObject({ estado: 'PAGADO' });
+  expect(await db.trabajos.get(deNoviembre)).toMatchObject({ estado: 'PENDIENTE' });
+  const lugar = (await db.lugares.get(lugarId))!;
+  const r = resumenPeriodo(lugar, periodoQueContiene(lugar.reglasCierre, '2026-10-05'), await db.trabajos.toArray(), await db.pagos.toArray());
+  expect(r.deudaPlata).toBe(6000);
+  expect(r.faltaACuenta).toBe(0);
+  expect(r.noPagados.map(t => t.id)).toEqual([c]);
+});
+
+test('cerrarPeriodo es una sola transacción: si falla, no cambia nada', async () => {
+  const lugarId = await lugarFijo();
+  const c = await anotarTrabajo(lugarId, '2026-10-07', 2000);
+  const espia = vi.spyOn(db.pagos, 'add').mockRejectedValue(new Error('falla simulada'));
+  try {
+    await expect(cerrarPeriodo(lugarId, '2026-10-31', '2026-11-28')).rejects.toThrow('falla simulada');
+  } finally {
+    espia.mockRestore();
+  }
+  expect(await db.pagos.count()).toBe(0);
+  expect(await db.trabajos.get(c)).toMatchObject({ estado: 'PENDIENTE' });
+});
+
+test('cerrarPeriodo de un lugar inexistente falla sin escribir nada', async () => {
+  await expect(cerrarPeriodo('no-existe', '2026-10-31', '2026-11-28')).rejects.toMatchObject({ codigo: 'LUGAR_INEXISTENTE' });
+  expect(await db.pagos.count()).toBe(0);
+});
+
+test('volverAPendiente pasa un NO_PAGADO a PENDIENTE y no toca otros estados', async () => {
+  const lugarId = await lugarFijo();
+  const a = await anotarTrabajo(lugarId, '2026-10-05');
+  const b = await anotarTrabajo(lugarId, '2026-10-06');
+  await registrarPago({ lugarId, ...pago, monto: 10000, tipo: 'FINAL', tildados: [a], destildados: [b] });
+  expect(await db.trabajos.get(b)).toMatchObject({ estado: 'NO_PAGADO' });
+
+  await volverAPendiente(b);
+  expect(await db.trabajos.get(b)).toMatchObject({ estado: 'PENDIENTE', pagoId: null });
+
+  const antes = await db.trabajos.get(a);
+  await volverAPendiente(a); // PAGADO: no cambia
+  expect(await db.trabajos.get(a)).toEqual(antes);
+  await volverAPendiente('no-existe'); // no lanza
 });

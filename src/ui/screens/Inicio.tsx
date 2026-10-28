@@ -3,10 +3,11 @@ import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { leerAjuste } from '../../data/ajustes'
 import { db } from '../../data/db'
-import { noMePagaron } from '../../data/pagos'
+import { cerrarPeriodo, noMePagaron } from '../../data/pagos'
 import { calcularAvisos, type Aviso } from '../../domain/avisos'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { formatFechaCorta, mesClave, nombreMes, type FechaISO } from '../../domain/dates'
+import type { Centavos } from '../../domain/money'
 import { nombrePeriodo, periodoQueContiene, type Periodo } from '../../domain/periodos'
 import { datosReclamo } from '../../pdf/reclamo'
 import type { DatosListado } from '../../pdf/listado'
@@ -17,7 +18,7 @@ import Card from '../components/Card'
 import ConfirmDialog from '../components/ConfirmDialog'
 import DialogCompartir from '../components/DialogCompartir'
 import { useHoy } from '../hooks/useHoy'
-import { plural } from './periodo/utils'
+import { plural, textoCerrarPeriodo, tituloCerrarPeriodo } from './periodo/utils'
 import { pesosJuntos } from '../pesos'
 
 interface Datos {
@@ -46,6 +47,11 @@ function useDatos(): Datos | undefined {
 
 const porNombre = (a: Lugar, b: Lugar) => a.nombre.localeCompare(b.nombre, 'es')
 
+/** Lo que se está por confirmar desde un aviso. `pendientes: null` = todos los trabajos (pago atrasado). */
+type Confirmacion =
+  | { tipo: 'no-me-pagaron'; lugar: Lugar; periodo: Periodo; pendientes: number | null }
+  | { tipo: 'cerrar'; lugar: Lugar; periodo: Periodo; falta: Centavos; pendientes: number }
+
 /** Inicio: saldo del mes, avisos que piden actuar y una tarjeta por lugar con el período en curso. */
 export default function Inicio() {
   const datos = useDatos()
@@ -55,7 +61,7 @@ export default function Inicio() {
 }
 
 function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
-  const [confirmando, setConfirmando] = useState<{ lugar: Lugar; periodo: Periodo } | null>(null)
+  const [confirmando, setConfirmando] = useState<Confirmacion | null>(null)
   const [reclamo, setReclamo] = useState<Omit<DatosListado, 'incluirNotas'> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ocupado = useRef(false)
@@ -77,14 +83,20 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
   const lugarDe = (id: string) => lugares.find((l) => l.id === id)
   const clave = (a: Aviso) => (a.tipo === 'COPIA' ? 'copia' : `${a.tipo}-${a.lugarId}-${'periodo' in a ? a.periodo.fin : ''}`)
 
-  async function confirmarNoMePagaron() {
+  async function confirmar() {
     if (!confirmando || ocupado.current) return
     ocupado.current = true
     setError(null)
+    const c = confirmando
     try {
-      await noMePagaron(confirmando.lugar.id, confirmando.periodo.fin)
+      if (c.tipo === 'cerrar') await cerrarPeriodo(c.lugar.id, c.periodo.fin, hoy)
+      else await noMePagaron(c.lugar.id, c.periodo.fin)
     } catch {
-      setError('No se pudo marcar como no pagados. Probá de nuevo.')
+      setError(
+        c.tipo === 'cerrar'
+          ? 'No se pudo pasar a deuda lo que falta cobrar. Probá de nuevo.'
+          : 'No se pudo marcar como no pagados. Probá de nuevo.',
+      )
     } finally {
       ocupado.current = false
       setConfirmando(null)
@@ -120,9 +132,18 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
               key={clave(a)}
               aviso={a}
               lugar={a.tipo === 'COPIA' ? undefined : lugarDe(a.lugarId)}
-              onNoMePagaron={(lugarId, periodo) => {
-                const lugar = lugarDe(lugarId)
-                if (lugar) setConfirmando({ lugar, periodo })
+              onNoMePagaron={(aviso) => {
+                const lugar = lugarDe(aviso.lugarId)
+                const pendientes = aviso.tipo === 'SIN_CONCILIAR' ? aviso.trabajos.length : null
+                if (lugar) setConfirmando({ tipo: 'no-me-pagaron', lugar, periodo: aviso.periodo, pendientes })
+              }}
+              onCerrarPeriodo={(aviso) => {
+                const lugar = lugarDe(aviso.lugarId)
+                if (lugar) {
+                  setConfirmando({
+                    tipo: 'cerrar', lugar, periodo: aviso.periodo, falta: aviso.faltaACuenta, pendientes: aviso.trabajos.length,
+                  })
+                }
               }}
               onCompartirReclamo={(lugarId) => {
                 const lugar = lugarDe(lugarId)
@@ -177,13 +198,27 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
 
       {reclamo && <DialogCompartir datos={reclamo} onCerrar={() => setReclamo(null)} />}
 
-      {confirmando && (
+      {confirmando?.tipo === 'no-me-pagaron' && (
         <ConfirmDialog
-          titulo={`¿Marcar todos los trabajos de ${nombrePeriodo(confirmando.periodo)} como no pagados?`}
+          titulo={
+            confirmando.pendientes === null
+              ? `¿Marcar todos los trabajos de ${nombrePeriodo(confirmando.periodo)} como no pagados?`
+              : `¿Marcar ${confirmando.pendientes === 1 ? 'el trabajo pendiente' : `los ${confirmando.pendientes} trabajos pendientes`} de ${nombrePeriodo(confirmando.periodo)} como no pagados?`
+          }
           texto="Pasan a ser una deuda de este lugar hasta que te los paguen."
           confirmar="No me pagaron"
           peligro
-          onConfirm={confirmarNoMePagaron}
+          onConfirm={confirmar}
+          onCancel={() => setConfirmando(null)}
+        />
+      )}
+      {confirmando?.tipo === 'cerrar' && (
+        <ConfirmDialog
+          titulo={tituloCerrarPeriodo(confirmando.periodo)}
+          texto={textoCerrarPeriodo(confirmando.falta, confirmando.pendientes)}
+          confirmar="Ya no me van a pagar más"
+          peligro
+          onConfirm={confirmar}
           onCancel={() => setConfirmando(null)}
         />
       )}

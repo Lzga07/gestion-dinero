@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { borrarPago, saldarDiferencia, yaMeLoPagaron } from '../../data/pagos'
+import { borrarPago, cerrarPeriodo, marcarNoPagado, saldarDiferencia, volverAPendiente, yaMeLoPagaron } from '../../data/pagos'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { formatFechaCorta, hoy, type FechaISO } from '../../domain/dates'
 import type { Centavos } from '../../domain/money'
@@ -12,14 +12,26 @@ import DialogCompartir from '../components/DialogCompartir'
 import DialogoYaPagaron from '../components/DialogoYaPagaron'
 import ResumenCard from './periodo/ResumenCard'
 import SelectorPeriodo from './periodo/SelectorPeriodo'
-import { etiquetaTrabajo, finDe, ordenarTrabajos, periodoPedido, useDatosLugar } from './periodo/utils'
+import {
+  etiquetaTrabajo, finDe, ordenarTrabajos, periodoPedido, textoCerrarPeriodo, tituloCerrarPeriodo, useDatosLugar,
+} from './periodo/utils'
 import { pesosJuntos } from '../pesos'
 
 type Dialogo =
   | { tipo: 'cobro-trabajo'; trabajo: Trabajo }
   | { tipo: 'cobro-diferencia'; monto: Centavos }
   | { tipo: 'borrar-pago'; pago: Pago }
+  | { tipo: 'cerrar' }
   | { tipo: 'compartir' }
+
+const TEXTO_BORRAR_PAGO =
+  'Los trabajos de este pago vuelven a pendiente. Los que marcaste como no pagados siguen así; los podés volver a pendiente desde la lista.'
+
+/** "25 oct · a cuenta", "25 oct · final" o, para el cierre de "Ya no me van a pagar más", "25 oct · sin más pagos". */
+function etiquetaPago(p: Pago): string {
+  const tipo = p.tipo === 'A_CUENTA' ? 'a cuenta' : p.monto === 0 ? 'sin más pagos' : 'final'
+  return `${formatFechaCorta(p.fecha)} · ${tipo}`
+}
 
 /** Período de un lugar (`/lugares/:id?periodo=<fin>`): qué le corresponde, qué le pagaron y qué falta. */
 export default function PeriodoLugar() {
@@ -43,6 +55,7 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
   const [params, setParams] = useSearchParams()
   const [dialogo, setDialogo] = useState<Dialogo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const ocupado = useRef(false)
 
   const periodo = periodoPedido(lugar, params.get('periodo'), hoy())
   const resumen = resumenPeriodo(lugar, periodo, trabajos, pagos)
@@ -51,14 +64,17 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
     .filter((p) => p.periodoFin === periodo.fin)
     .sort((a, b) => (a.fecha !== b.fecha ? (a.fecha < b.fecha ? 1 : -1) : a.creadoEn < b.creadoEn ? 1 : -1))
 
-  /** Corre una acción de datos; si falla deja el aviso en pantalla. */
+  /** Corre una acción de datos (una a la vez: un doble toque no la repite); si falla deja el aviso en pantalla. */
   async function correr(accion: () => Promise<unknown>, falla: string) {
+    if (ocupado.current) return
+    ocupado.current = true
     setError(null)
     try {
       await accion()
-      setDialogo(null)
     } catch {
       setError(falla)
+    } finally {
+      ocupado.current = false
       setDialogo(null)
     }
   }
@@ -124,15 +140,38 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
                 </span>
                 <span className={tr.estado === 'NO_PAGADO' ? 'texto-neg' : undefined}>{pesosJuntos(tr.monto)}</span>
               </Link>
-              {tr.estado === 'NO_PAGADO' && (
-                <Button
-                  variante="texto"
-                  className="trabajo__accion"
-                  aria-describedby={`trabajo-${tr.id}`}
-                  onClick={() => setDialogo({ tipo: 'cobro-trabajo', trabajo: tr })}
-                >
-                  Ya me lo pagaron
-                </Button>
+              {tr.estado !== 'PAGADO' && (
+                <div className="trabajo__acciones">
+                  {tr.estado === 'NO_PAGADO' ? (
+                    <>
+                      <Button
+                        variante="texto"
+                        className="trabajo__accion"
+                        aria-describedby={`trabajo-${tr.id}`}
+                        onClick={() => setDialogo({ tipo: 'cobro-trabajo', trabajo: tr })}
+                      >
+                        Ya me lo pagaron
+                      </Button>
+                      <Button
+                        variante="texto"
+                        className="trabajo__accion trabajo__accion--neutra"
+                        aria-describedby={`trabajo-${tr.id}`}
+                        onClick={() => correr(() => volverAPendiente(tr.id), 'No se pudo volver a pendiente. Probá de nuevo.')}
+                      >
+                        Volver a pendiente
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variante="texto"
+                      className="trabajo__accion trabajo__accion--neutra"
+                      aria-describedby={`trabajo-${tr.id}`}
+                      onClick={() => correr(() => marcarNoPagado(tr.id), 'No se pudo marcar como no pagado. Probá de nuevo.')}
+                    >
+                      Marcar como no pagado
+                    </Button>
+                  )}
+                </div>
               )}
             </li>
           ))}
@@ -150,13 +189,24 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
         </Card>
       )}
 
+      {resumen.faltaACuenta > 0 && (
+        <Card className="diferencia">
+          <div className="diferencia__fila">
+            <p className="diferencia__texto">{`Pagos a cuenta: falta cobrar ${pesosJuntos(resumen.faltaACuenta)}`}</p>
+            <Button variante="texto" className="texto-neg" onClick={() => setDialogo({ tipo: 'cerrar' })}>
+              Ya no me van a pagar más
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {pagosDelPeriodo.length > 0 && (
         <>
           <h2 className="section-title">Pagos de este período</h2>
           <Card flush as="ul" className="lista pagos" aria-label="Pagos de este período">
             {pagosDelPeriodo.map((p) => (
               <li key={p.id} className="pago">
-                <span className="pago__datos">{`${formatFechaCorta(p.fecha)} · ${p.tipo === 'FINAL' ? 'final' : 'a cuenta'}`}</span>
+                <span className="pago__datos">{etiquetaPago(p)}</span>
                 <strong className="texto-ok">{pesosJuntos(p.monto)}</strong>
                 <Button
                   variante="texto"
@@ -209,10 +259,22 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
           onCerrar={() => setDialogo(null)}
         />
       )}
+      {dialogo?.tipo === 'cerrar' && (
+        <ConfirmDialog
+          titulo={tituloCerrarPeriodo(periodo)}
+          texto={textoCerrarPeriodo(resumen.faltaACuenta, resumen.pendientes.length)}
+          confirmar="Ya no me van a pagar más"
+          peligro
+          onConfirm={() =>
+            correr(() => cerrarPeriodo(lugar.id, periodo.fin, hoy()), 'No se pudo pasar a deuda lo que falta cobrar. Probá de nuevo.')
+          }
+          onCancel={() => setDialogo(null)}
+        />
+      )}
       {dialogo?.tipo === 'borrar-pago' && (
         <ConfirmDialog
           titulo="¿Borrar este pago?"
-          texto="Sus trabajos vuelven a pendiente."
+          texto={TEXTO_BORRAR_PAGO}
           confirmar="Borrar"
           peligro
           onConfirm={() => correr(() => borrarPago(dialogo.pago.id), 'No se pudo borrar el pago. Probá de nuevo.')}

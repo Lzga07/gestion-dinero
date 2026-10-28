@@ -193,6 +193,51 @@ describe('avisos', () => {
     expect(screen.getByRole('link', { name: 'Revisar' })).toHaveAttribute('href', `/lugares/${lugarId}?periodo=2026-09-30`)
   })
 
+  test('trabajos sin conciliar: "No me pagaron" pide confirmación y los pasa a deuda', async () => {
+    const lugarId = await lugarQuePagaEl25()
+    await copiaAlDia()
+    const t = await septiembre(lugarId)
+    await registrarPago({
+      lugarId, periodoFin: '2026-09-30', fecha: '2026-10-22', monto: 3800000, tipo: 'A_CUENTA', nota: '',
+      tildados: [t.arreglo], destildados: [],
+    })
+    const user = renderInicio()
+
+    expect(await screen.findByText('Clínica Centro: 3 trabajos sin conciliar')).toBeInTheDocument()
+    await user.click(within(avisos()).getByRole('button', { name: 'No me pagaron' }))
+    const dialogo = screen.getByRole('dialog', { name: '¿Marcar los 3 trabajos pendientes de 1 – 30 sep como no pagados?' })
+    await user.click(within(dialogo).getByRole('button', { name: 'No me pagaron' }))
+
+    expect(await screen.findByText('Clínica Centro: te deben $ 100.000')).toBeInTheDocument()
+    expect(screen.queryByText(/sin conciliar/)).not.toBeInTheDocument()
+    expect(await db.trabajos.get(t.corona)).toMatchObject({ estado: 'NO_PAGADO' })
+    expect(await db.trabajos.get(t.arreglo)).toMatchObject({ estado: 'PAGADO' })
+  })
+
+  test('pagos solo a cuenta vencidos avisan lo que falta y "Ya no me van a pagar más" lo pasa a deuda', async () => {
+    const lugarId = await lugarQuePagaEl25()
+    await copiaAlDia()
+    const t = await septiembre(lugarId) // 138.000
+    await registrarPago({
+      lugarId, periodoFin: '2026-09-30', fecha: '2026-10-22', monto: 7800000, tipo: 'A_CUENTA', nota: '',
+      tildados: [t.arreglo, t.corona, t.limpieza, t.extraccion], destildados: [],
+    })
+    const user = renderInicio()
+
+    expect(await screen.findByText('Clínica Centro: falta cobrar $ 60.000 de 1 – 30 sep (pagos a cuenta)')).toBeInTheDocument()
+    expect(within(avisos()).getByRole('link', { name: 'Revisar' })).toHaveAttribute('href', `/lugares/${lugarId}?periodo=2026-09-30`)
+    expect(within(avisos()).queryByRole('button', { name: 'No me pagaron' })).not.toBeInTheDocument()
+
+    await user.click(within(avisos()).getByRole('button', { name: 'Ya no me van a pagar más' }))
+    const dialogo = screen.getByRole('dialog', { name: '¿Ya no te van a pagar más 1 – 30 sep?' })
+    await user.click(within(dialogo).getByRole('button', { name: 'Ya no me van a pagar más' }))
+
+    expect(await screen.findByText('Clínica Centro: te deben $ 60.000')).toBeInTheDocument()
+    expect(screen.getByText('Diferencias en pagos: $ 60.000')).toBeInTheDocument()
+    expect(screen.queryByText(/pagos a cuenta\)/)).not.toBeInTheDocument()
+    expect((await db.pagos.toArray()).filter((p) => p.tipo === 'FINAL')).toHaveLength(1)
+  })
+
   test('sin copia de seguridad avisa, y "Hacer copia ahora" lleva a la pantalla de copia', async () => {
     const lugarId = await lugarFijo()
     await anotar(lugarId, '2026-10-20', 'Limpieza', 25000)

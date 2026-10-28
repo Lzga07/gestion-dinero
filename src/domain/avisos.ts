@@ -6,7 +6,11 @@ import type { Lugar, Pago, Trabajo } from './types';
 
 export type Aviso =
   | { tipo: 'PAGO_ATRASADO'; lugarId: string; periodo: Periodo; monto: Centavos }
-  | { tipo: 'SIN_CONCILIAR'; lugarId: string; periodo: Periodo; trabajos: Trabajo[]; monto: Centavos }
+  /**
+   * Vencida la ventana de pago, el período tiene trabajos PENDIENTE (`trabajos`) y/o pagos solo a cuenta que
+   * no llegan a lo que corresponde (`faltaACuenta`). `monto` = suma de `trabajos` + `faltaACuenta`.
+   */
+  | { tipo: 'SIN_CONCILIAR'; lugarId: string; periodo: Periodo; trabajos: Trabajo[]; faltaACuenta: Centavos; monto: Centavos }
   | { tipo: 'DEUDA'; lugarId: string; noPagados: Trabajo[]; deudasPlata: { periodo: Periodo; monto: Centavos }[]; monto: Centavos }
   | { tipo: 'COPIA'; diasSinCopia: number | null }; // null = nunca se hizo
 
@@ -46,11 +50,14 @@ export function calcularAvisos(a: {
       if (r.deudaPlata > 0) deudasPlata.push({ periodo, monto: r.deudaPlata });
 
       const vencida = a.hoy > ventanaPago(periodo.fin, lugar.pagoDesdeDia, lugar.pagoHastaDia).hasta;
-      if (!vencida || r.pendientes.length === 0) continue;
+      if (!vencida || (r.pendientes.length === 0 && r.faltaACuenta === 0)) continue;
       if (r.tienePagos) {
         sinConciliar.push({
           fin: periodo.fin, lugar,
-          aviso: { tipo: 'SIN_CONCILIAR', lugarId: lugar.id, periodo, trabajos: r.pendientes, monto: suma(r.pendientes) },
+          aviso: {
+            tipo: 'SIN_CONCILIAR', lugarId: lugar.id, periodo, trabajos: r.pendientes,
+            faltaACuenta: r.faltaACuenta, monto: suma(r.pendientes) + r.faltaACuenta,
+          },
         });
       } else {
         atrasados.push({

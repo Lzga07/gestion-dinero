@@ -67,9 +67,45 @@ test('trabajo olvidado PENDIENTE en período ya pagado → SIN_CONCILIAR', () =>
   const args = { ...sinCopia, hoy: '2026-11-05', trabajos: [pagado, olvidado], pagos: [pago('p1', SEP.fin, 10000000, 'FINAL')] };
   const avisos = calcularAvisos(args);
   expect(tipos(avisos)).toEqual(['SIN_CONCILIAR']);
-  expect(avisos[0]).toEqual({ tipo: 'SIN_CONCILIAR', lugarId: 'L1', periodo: SEP, trabajos: [olvidado], monto: 2000000 });
+  expect(avisos[0]).toEqual({ tipo: 'SIN_CONCILIAR', lugarId: 'L1', periodo: SEP, trabajos: [olvidado], faltaACuenta: 0, monto: 2000000 });
   // Dentro de la ventana de pago todavía no avisa.
   expect(tipos(calcularAvisos({ ...args, hoy: '2026-10-31' }))).toEqual([]);
+});
+
+describe('pagos solo a cuenta, vencida la ventana', () => {
+  // a (100.000) y b (50.000) tildados como pagados con un pago a cuenta de 90.000: faltan 60.000 en plata.
+  const a = t('a', '2026-09-03', 10000000, 'PAGADO', 'p1');
+  const b = t('b', '2026-09-10', 5000000, 'PAGADO', 'p1');
+  const aCuenta = pago('p1', SEP.fin, 9000000, 'A_CUENTA');
+
+  test('sin pendientes ni pago final, lo que falta en plata genera SIN_CONCILIAR', () => {
+    const args = { ...sinCopia, trabajos: [a, b], pagos: [aCuenta] };
+    expect(calcularAvisos({ ...args, hoy: '2026-10-31' })).toEqual([]);
+    expect(calcularAvisos({ ...args, hoy: '2026-11-01' })).toEqual([
+      { tipo: 'SIN_CONCILIAR', lugarId: 'L1', periodo: SEP, trabajos: [], faltaACuenta: 6000000, monto: 6000000 },
+    ]);
+  });
+
+  test('con pendientes, el aviso junta los trabajos y lo que falta en plata', () => {
+    const c = t('c', '2026-09-20', 2000000);
+    const avisos = calcularAvisos({ ...sinCopia, hoy: '2026-11-05', trabajos: [a, b, c], pagos: [aCuenta] });
+    expect(avisos).toEqual([
+      { tipo: 'SIN_CONCILIAR', lugarId: 'L1', periodo: SEP, trabajos: [c], faltaACuenta: 6000000, monto: 8000000 },
+    ]);
+  });
+
+  test('con un pago final, lo que falta ya es deuda y no SIN_CONCILIAR', () => {
+    const cierre = pago('p2', SEP.fin, 0, 'FINAL');
+    const avisos = calcularAvisos({ ...sinCopia, hoy: '2026-11-05', trabajos: [a, b], pagos: [aCuenta, cierre] });
+    expect(avisos).toEqual([
+      { tipo: 'DEUDA', lugarId: 'L1', noPagados: [], deudasPlata: [{ periodo: SEP, monto: 6000000 }], monto: 6000000 },
+    ]);
+  });
+
+  test('si lo cobrado alcanza, no avisa', () => {
+    const completo = pago('p1', SEP.fin, 15000000, 'A_CUENTA');
+    expect(calcularAvisos({ ...sinCopia, hoy: '2026-11-05', trabajos: [a, b], pagos: [completo] })).toEqual([]);
+  });
 });
 
 test('DEUDA suma NO_PAGADO y deuda en plata del mismo lugar en un solo aviso', () => {

@@ -2,8 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../../data/db'
 import { formatFechaCorta, sumarDias, type FechaISO } from '../../../domain/dates'
 import type { Centavos } from '../../../domain/money'
-import { periodoQueContiene, type Periodo } from '../../../domain/periodos'
+import { nombrePeriodo, periodoQueContiene, type Periodo } from '../../../domain/periodos'
 import type { Lugar, Pago, Trabajo } from '../../../domain/types'
+import { pesosJuntos } from '../../pesos'
 
 export interface DatosLugar {
   lugar: Lugar | undefined
@@ -47,3 +48,15 @@ export const plural = (n: number, uno: string, varios: string) => `${n} ${n === 
 
 /** "26 sep · Corona" */
 export const etiquetaTrabajo = (tr: Trabajo) => `${formatFechaCorta(tr.fecha)} · ${tr.descripcion}`
+
+/** Título de la confirmación de "Ya no me van a pagar más". */
+export const tituloCerrarPeriodo = (p: Periodo) => `¿Ya no te van a pagar más ${nombrePeriodo(p)}?`
+
+/** Qué pasa al cerrar un período con pagos solo a cuenta: lo que falta es deuda y los pendientes, no pagados. */
+export function textoCerrarPeriodo(falta: Centavos, pendientes: number): string {
+  const deuda = `Lo que falta cobrar (${pesosJuntos(falta)}) pasa a ser una deuda de este lugar, para reclamarla.`
+  if (pendientes === 0) return deuda
+  return pendientes === 1
+    ? `${deuda} El trabajo pendiente queda como no pagado.`
+    : `${deuda} Los ${pendientes} trabajos pendientes quedan como no pagados.`
+}

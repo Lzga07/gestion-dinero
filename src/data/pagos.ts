@@ -47,6 +47,33 @@ export async function marcarNoPagado(trabajoId: string): Promise<void> {
   });
 }
 
+/** "Volver a pendiente": un NO_PAGADO vuelve a PENDIENTE (deja de ser deuda); en cualquier otro estado no hace nada. */
+export async function volverAPendiente(trabajoId: string): Promise<void> {
+  await db.transaction('rw', db.trabajos, async () => {
+    const tr = await db.trabajos.get(trabajoId);
+    if (tr && tr.estado === 'NO_PAGADO') await db.trabajos.update(trabajoId, { estado: 'PENDIENTE', pagoId: null });
+  });
+}
+
+/**
+ * "Ya no me van a pagar más": cierra el período con un pago FINAL de $ 0 y pasa sus PENDIENTE a NO_PAGADO,
+ * en una transacción. Con el pago FINAL, lo que faltaba cobrar "a cuenta" pasa a ser deuda reclamable en
+ * plata del período (`resumenPeriodo().deudaPlata`). Es el único pago de $ 0 que se registra.
+ */
+export async function cerrarPeriodo(lugarId: string, periodoFin: FechaISO, fecha: FechaISO): Promise<string> {
+  return db.transaction('rw', db.pagos, db.trabajos, db.lugares, async () => {
+    const lugar = await db.lugares.get(lugarId);
+    if (!lugar) throw new ErrorDatos('LUGAR_INEXISTENTE');
+    await db.trabajos
+      .where('lugarId').equals(lugarId)
+      .filter(tr => tr.estado === 'PENDIENTE' && periodoQueContiene(lugar.reglasCierre, tr.fecha).fin === periodoFin)
+      .modify({ estado: 'NO_PAGADO' });
+    const pago: Pago = { id: nuevoId(), tipo: 'FINAL', lugarId, periodoFin, fecha, monto: 0, nota: '', creadoEn: ahoraISO() };
+    await db.pagos.add(pago);
+    return pago.id;
+  });
+}
+
 /** "Ya me lo pagaron": pago FINAL adicional del período del trabajo, que queda PAGADO. */
 export async function yaMeLoPagaron(trabajoId: string, fecha: FechaISO, monto: Centavos): Promise<string> {
   return db.transaction('rw', db.pagos, db.trabajos, db.lugares, async () => {

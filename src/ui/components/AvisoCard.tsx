@@ -1,17 +1,23 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Aviso } from '../../domain/avisos'
-import { nombrePeriodo, type Periodo } from '../../domain/periodos'
+import { nombrePeriodo } from '../../domain/periodos'
 import type { Lugar } from '../../domain/types'
 import { plural } from '../screens/periodo/utils'
 import Button from './Button'
 import { pesosJuntos } from '../pesos'
 
+type AvisoPeriodo = Extract<Aviso, { tipo: 'PAGO_ATRASADO' | 'SIN_CONCILIAR' }>
+export type AvisoSinConciliar = Extract<Aviso, { tipo: 'SIN_CONCILIAR' }>
+
 interface AvisoCardProps {
   aviso: Aviso
   /** El lugar del aviso (todos menos COPIA). */
   lugar?: Lugar
-  onNoMePagaron?: (lugarId: string, periodo: Periodo) => void
+  /** "No me pagaron": pasar los pendientes del período a no pagados (el que lo recibe pide confirmación). */
+  onNoMePagaron?: (aviso: AvisoPeriodo) => void
+  /** "Ya no me van a pagar más": cerrar un período con pagos solo a cuenta (pide confirmación). */
+  onCerrarPeriodo?: (aviso: AvisoSinConciliar) => void
   onCompartirReclamo?: (lugarId: string) => void
 }
 
@@ -23,12 +29,7 @@ interface Contenido {
   acciones: ReactNode
 }
 
-function contenido(
-  aviso: Aviso,
-  lugar: Lugar | undefined,
-  onNoMePagaron: AvisoCardProps['onNoMePagaron'],
-  onCompartirReclamo: AvisoCardProps['onCompartirReclamo'],
-): Contenido | null {
+function contenido({ aviso, lugar, onNoMePagaron, onCerrarPeriodo, onCompartirReclamo }: AvisoCardProps): Contenido | null {
   if (aviso.tipo === 'COPIA') {
     return {
       nivel: 'aviso',
@@ -58,7 +59,7 @@ function contenido(
           <Link className="btn btn--secundario" to={`/lugares/${lugar.id}/pago?periodo=${aviso.periodo.fin}`}>
             Registrar pago
           </Link>
-          <Button variante="secundario" onClick={() => onNoMePagaron?.(lugar.id, aviso.periodo)}>
+          <Button variante="secundario" onClick={() => onNoMePagaron?.(aviso)}>
             No me pagaron
           </Button>
         </>
@@ -88,21 +89,44 @@ function contenido(
     }
   }
 
+  // SIN_CONCILIAR: trabajos pendientes y/o pagos solo a cuenta que no alcanzan, con el plazo ya vencido.
+  const periodo = nombrePeriodo(aviso.periodo)
+  const hayTrabajos = aviso.trabajos.length > 0
+  const falta = pesosJuntos(aviso.faltaACuenta)
   return {
     nivel: 'aviso',
-    titulo: `${lugar.nombre}: ${plural(aviso.trabajos.length, 'trabajo', 'trabajos')} sin conciliar`,
-    lineas: [`${nombrePeriodo(aviso.periodo)}: revisá si te los pagaron.`],
+    titulo: hayTrabajos
+      ? `${lugar.nombre}: ${plural(aviso.trabajos.length, 'trabajo', 'trabajos')} sin conciliar`
+      : `${lugar.nombre}: falta cobrar ${falta} de ${periodo} (pagos a cuenta)`,
+    lineas: hayTrabajos
+      ? [
+          `${periodo}: revisá si te los pagaron.`,
+          ...(aviso.faltaACuenta > 0 ? [`Además falta cobrar ${falta} de los pagos a cuenta.`] : []),
+        ]
+      : ['Ya pasó la fecha de pago y solo registraste pagos a cuenta.'],
     acciones: (
-      <Link className="btn btn--secundario" to={`/lugares/${lugar.id}?periodo=${aviso.periodo.fin}`}>
-        Revisar
-      </Link>
+      <>
+        <Link className="btn btn--secundario" to={`/lugares/${lugar.id}?periodo=${aviso.periodo.fin}`}>
+          Revisar
+        </Link>
+        {aviso.faltaACuenta > 0 ? (
+          // Cerrar el período también pasa los pendientes a no pagados: no hace falta "No me pagaron".
+          <Button variante="secundario" onClick={() => onCerrarPeriodo?.(aviso)}>
+            Ya no me van a pagar más
+          </Button>
+        ) : (
+          <Button variante="secundario" onClick={() => onNoMePagaron?.(aviso)}>
+            No me pagaron
+          </Button>
+        )}
+      </>
     ),
   }
 }
 
 /** Un aviso de Inicio: qué pasa, el detalle y lo que se puede hacer. */
-export default function AvisoCard({ aviso, lugar, onNoMePagaron, onCompartirReclamo }: AvisoCardProps) {
-  const c = contenido(aviso, lugar, onNoMePagaron, onCompartirReclamo)
+export default function AvisoCard(props: AvisoCardProps) {
+  const c = contenido(props)
   if (!c) return null
   return (
     <article className={`aviso-card aviso-card--${c.nivel}`}>

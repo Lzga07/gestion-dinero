@@ -803,9 +803,19 @@ a.screen-header__back {
   overflow-wrap: anywhere;
 }
 
-.trabajo__accion {
+.trabajo__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
   margin: 0 12px 6px 44px;
+}
+
+.trabajo__accion {
   color: var(--neg);
+}
+
+.trabajo__accion--neutra {
+  color: var(--accent);
 }
 
 .diferencia {

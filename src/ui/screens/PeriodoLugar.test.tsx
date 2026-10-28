@@ -212,7 +212,11 @@ describe('período del lugar', () => {
     await user.click(within(pagos).getByRole('button', { name: 'Borrar pago del 25 oct' }))
 
     const dialogo = await screen.findByRole('dialog', { name: '¿Borrar este pago?' })
-    expect(within(dialogo).getByText('Sus trabajos vuelven a pendiente.')).toBeInTheDocument()
+    expect(
+      within(dialogo).getByText(
+        'Los trabajos de este pago vuelven a pendiente. Los que marcaste como no pagados siguen así; los podés volver a pendiente desde la lista.',
+      ),
+    ).toBeInTheDocument()
     expect(await db.pagos.count()).toBe(1) // todavía no
     await user.click(within(dialogo).getByRole('button', { name: 'Borrar' }))
 
@@ -345,5 +349,105 @@ describe('período del lugar', () => {
   test('un lugar inexistente avisa en vez de romper', async () => {
     renderEn('/lugares/no-existe')
     expect(await screen.findByText('No encontramos este lugar.')).toBeInTheDocument()
+  })
+})
+
+describe('cerrar un período y cambiar el estado de un trabajo', () => {
+  test('pagos solo a cuenta: "Ya no me van a pagar más" convierte lo que falta en deuda del período', async () => {
+    const lugarId = await lugarFijo()
+    const t = await septiembre(lugarId) // 138.000
+    await registrarPago({
+      lugarId, periodoFin: '2026-09-30', fecha: '2026-10-22', monto: 6000000, tipo: 'A_CUENTA', nota: '',
+      tildados: [t.arreglo, t.corona, t.limpieza, t.extraccion], destildados: [],
+    })
+    const user = renderEn(`/lugares/${lugarId}?periodo=2026-09-30`)
+
+    expect(await screen.findByText('Pagos a cuenta: falta cobrar $ 78.000')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ya no me van a pagar más' }))
+    const dialogo = await screen.findByRole('dialog', { name: '¿Ya no te van a pagar más 1 – 30 sep?' })
+    expect(
+      within(dialogo).getByText('Lo que falta cobrar ($ 78.000) pasa a ser una deuda de este lugar, para reclamarla.'),
+    ).toBeInTheDocument()
+    await user.click(within(dialogo).getByRole('button', { name: 'Ya no me van a pagar más' }))
+
+    expect(await screen.findByText('Diferencia en pago: $ 78.000')).toBeInTheDocument()
+    expect(screen.queryByText(/^Pagos a cuenta: falta cobrar/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ya no me van a pagar más' })).not.toBeInTheDocument()
+    const pagos = await db.pagos.toArray()
+    expect(pagos.find((p) => p.tipo === 'FINAL')).toMatchObject({ monto: 0, periodoFin: '2026-09-30', fecha: '2026-10-27' })
+    expect(within(screen.getByRole('list', { name: 'Pagos de este período' })).getByText('27 oct · sin más pagos')).toBeInTheDocument()
+  })
+
+  test('"Ya no me van a pagar más" también pasa los pendientes a no pagados, y cancelar no cambia nada', async () => {
+    const lugarId = await lugarFijo()
+    const t = await septiembre(lugarId)
+    await registrarPago({
+      lugarId, periodoFin: '2026-09-30', fecha: '2026-10-22', monto: 3000000, tipo: 'A_CUENTA', nota: '',
+      tildados: [t.arreglo], destildados: [t.corona, t.limpieza, t.extraccion],
+    })
+    const user = renderEn(`/lugares/${lugarId}?periodo=2026-09-30`)
+
+    await user.click(await screen.findByRole('button', { name: 'Ya no me van a pagar más' }))
+    const dialogo = await screen.findByRole('dialog')
+    expect(
+      within(dialogo).getByText(
+        'Lo que falta cobrar ($ 8.000) pasa a ser una deuda de este lugar, para reclamarla. Los 3 trabajos pendientes quedan como no pagados.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(within(dialogo).getByRole('button', { name: 'Cancelar' }))
+    expect(await db.pagos.count()).toBe(1)
+
+    await user.click(screen.getByRole('button', { name: 'Ya no me van a pagar más' }))
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Ya no me van a pagar más' }))
+    await waitFor(async () => expect((await db.trabajos.get(t.corona))!.estado).toBe('NO_PAGADO'))
+    expect(await screen.findByText('Diferencia en pago: $ 8.000')).toBeInTheDocument()
+  })
+
+  test('sin pagos a cuenta no ofrece cerrar el período', async () => {
+    const lugarId = await lugarFijo()
+    await septiembre(lugarId)
+    renderEn(`/lugares/${lugarId}?periodo=2026-09-30`)
+    await screen.findByRole('list', { name: 'Trabajos del período' })
+    expect(screen.queryByRole('button', { name: 'Ya no me van a pagar más' })).not.toBeInTheDocument()
+  })
+
+  test('un PENDIENTE se marca como no pagado y vuelve a pendiente; un PAGADO no ofrece nada', async () => {
+    const lugarId = await lugarFijo()
+    const o = await octubre(lugarId)
+    await registrarPago({
+      lugarId, periodoFin: '2026-10-31', fecha: '2026-10-25', monto: 3800000, tipo: 'A_CUENTA', nota: '',
+      tildados: [o.arreglo], destildados: [],
+    })
+    const user = renderEn(`/lugares/${lugarId}`)
+
+    const lista = await screen.findByRole('list', { name: 'Trabajos del período' })
+    const filaDe = (texto: string) => within(lista).getByText(texto).closest('li') as HTMLElement
+    const pagado = within(lista).getAllByText('27 oct · Arreglo')[0].closest('li') as HTMLElement
+    expect(within(pagado).queryByRole('button')).not.toBeInTheDocument()
+
+    await user.click(within(filaDe('24 oct · Extracción')).getByRole('button', { name: 'Marcar como no pagado' }))
+    await waitFor(async () => expect((await db.trabajos.get(o.extraccion))!.estado).toBe('NO_PAGADO'))
+    expect(await within(filaDe('24 oct · Extracción')).findByRole('button', { name: 'Volver a pendiente' })).toBeInTheDocument()
+    expect(within(filaDe('24 oct · Extracción')).getByRole('button', { name: 'Ya me lo pagaron' })).toBeInTheDocument()
+    expect(within(filaDe('24 oct · Extracción')).queryByRole('button', { name: 'Marcar como no pagado' })).not.toBeInTheDocument()
+
+    await user.click(within(filaDe('24 oct · Extracción')).getByRole('button', { name: 'Volver a pendiente' }))
+    await waitFor(async () => expect((await db.trabajos.get(o.extraccion))!.estado).toBe('PENDIENTE'))
+    expect(await within(filaDe('24 oct · Extracción')).findByRole('button', { name: 'Marcar como no pagado' })).toBeInTheDocument()
+  })
+
+  test('después de borrar un pago FINAL por error, los no pagados se pueden volver a pendiente', async () => {
+    const lugarId = await lugarFijo()
+    const o = await octubre(lugarId)
+    await registrarPago({
+      lugarId, periodoFin: '2026-10-31', fecha: '2026-10-25', monto: 3800000, tipo: 'FINAL', nota: '',
+      tildados: [o.arreglo], destildados: [o.limpieza, o.extraccion, o.arreglo2],
+    })
+    const user = renderEn(`/lugares/${lugarId}`)
+    await user.click(await screen.findByRole('button', { name: 'Borrar pago del 25 oct' }))
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Borrar' }))
+    await waitFor(async () => expect(await db.pagos.count()).toBe(0))
+
+    expect(await screen.findAllByRole('button', { name: 'Volver a pendiente' })).toHaveLength(3)
   })
 })

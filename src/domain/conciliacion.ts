@@ -64,6 +64,12 @@ export interface ResumenPeriodo {
   pendientes: Trabajo[];
   noPagados: Trabajo[];
   deudaPlata: Centavos;
+  /**
+   * "A cuenta, falta cobrar": el período tiene pagos pero ninguno FINAL, y lo cobrado no llega a lo que
+   * corresponde aunque se descuenten los trabajos pendientes y los no pagados. Al cerrar el período (pago
+   * FINAL) esto pasa a ser `deudaPlata`.
+   */
+  faltaACuenta: Centavos;
   tienePagos: boolean;
   aFavor: Centavos;
 }
@@ -79,7 +85,9 @@ export function resumenPeriodo(lugar: Lugar, periodo: Periodo, trabajos: Trabajo
   const cobrado = cobradoPorPeriodo(lugar, trabajos, pagos).get(periodo.fin) ?? 0;
   const faltaCobrar = teCorresponde - cobrado;
   const hayFinal = pagosDelPeriodo.some(p => p.tipo === 'FINAL');
-  const deudaPlata = hayFinal ? Math.max(0, faltaCobrar - suma(pendientes) - suma(noPagados)) : 0;
+  const faltaEnPlata = Math.max(0, faltaCobrar - suma(pendientes) - suma(noPagados));
+  const deudaPlata = hayFinal ? faltaEnPlata : 0;
+  const faltaACuenta = !hayFinal && pagosDelPeriodo.length > 0 ? faltaEnPlata : 0;
   return {
     periodo,
     cantidad: delPeriodo.length,
@@ -89,6 +97,7 @@ export function resumenPeriodo(lugar: Lugar, periodo: Periodo, trabajos: Trabajo
     pendientes,
     noPagados,
     deudaPlata,
+    faltaACuenta,
     tienePagos: pagosDelPeriodo.length > 0,
     aFavor: Math.max(0, -faltaCobrar),
   };
