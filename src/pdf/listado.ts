@@ -1,5 +1,6 @@
 import { type FechaISO, hoy as hoyLocal, parseFecha } from '../domain/dates'
 import { formatPesos, type Centavos } from '../domain/money'
+import { slug } from '../domain/texto'
 import { nombrePeriodo, type Periodo } from '../domain/periodos'
 import type { ResumenPeriodo } from '../domain/conciliacion'
 import type { Lugar, Trabajo } from '../domain/types'
@@ -143,17 +144,6 @@ export function contenidoListado(d: DatosListado): ContenidoListado {
     pie: pieDe(d),
   }
 }
-
-// Marcas combinables U+0300..U+036F: lo que queda de las tildes después de normalizar en NFD.
-const MARCAS_COMBINADAS = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g')
-
-const slug = (texto: string) =>
-  texto
-    .normalize('NFD')
-    .replace(MARCAS_COMBINADAS, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
 
 /** `listado-<lugar>-<fin>.pdf` o `reclamo-<lugar>-<hoy>.pdf`. */
 export function nombreArchivoListado(d: DatosListado): string {

@@ -1,4 +1,5 @@
 import { type FechaISO, aFecha, diasEnMes, parseFecha, sumarMeses } from './dates';
+import { slug } from './texto';
 import type { Lugar } from './types';
 
 const CRLF = '\r\n';
@@ -68,4 +69,9 @@ export function armarIcsLugar(lugar: Lugar, hoy: FechaISO): string {
     'END:VCALENDAR',
   ];
   return lineas.map(plegar).join(CRLF) + CRLF;
+}
+
+/** `pago-<lugar>.ics` */
+export function nombreArchivoCalendario(lugar: Lugar): string {
+  return `pago-${slug(lugar.nombre) || 'lugar'}.ics`;
 }

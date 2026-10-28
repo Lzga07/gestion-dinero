@@ -193,15 +193,13 @@ describe('avisos', () => {
     expect(screen.getByRole('link', { name: 'Revisar' })).toHaveAttribute('href', `/lugares/${lugarId}?periodo=2026-09-30`)
   })
 
-  test('sin copia de seguridad avisa, y "Hacer copia ahora" queda para la Tarea 16', async () => {
+  test('sin copia de seguridad avisa, y "Hacer copia ahora" lleva a la pantalla de copia', async () => {
     const lugarId = await lugarFijo()
     await anotar(lugarId, '2026-10-20', 'Limpieza', 25000)
     renderInicio()
 
     expect(await screen.findByText('Todavía no hiciste una copia de seguridad')).toBeInTheDocument()
-    const boton = screen.getByRole('button', { name: 'Hacer copia ahora' })
-    expect(boton).toBeDisabled()
-    expect(boton).toHaveAccessibleDescription('Disponible pronto')
+    expect(screen.getByRole('link', { name: 'Hacer copia ahora' })).toHaveAttribute('href', '/mas/copia')
   })
 
   test('con una copia vieja cuenta los días', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { armarIcsLugar } from './calendario';
+import { armarIcsLugar, nombreArchivoCalendario } from './calendario';
 import { INICIO_DE_LOS_TIEMPOS } from './periodos';
 import type { Lugar } from './types';
 
@@ -71,5 +71,15 @@ describe('armarIcsLugar', () => {
     for (const l of ics.split('\r\n')) expect(new TextEncoder().encode(l).length).toBeLessThanOrEqual(75);
     // al desplegar (CRLF + espacio) la línea vuelve a ser la original
     expect(ics.replace(/\r\n /g, '')).toContain(`SUMMARY:Revisar pago de ${nombre}`);
+  });
+});
+
+describe('nombreArchivoCalendario', () => {
+  test('pago-<lugar>.ics sin tildes ni espacios', () => {
+    expect(nombreArchivoCalendario({ ...lugar, nombre: 'Clínica  Centro' })).toBe('pago-clinica-centro.ics');
+  });
+
+  test('un nombre sin letras ni números usa "lugar"', () => {
+    expect(nombreArchivoCalendario({ ...lugar, nombre: '???' })).toBe('pago-lugar.ics');
   });
 });

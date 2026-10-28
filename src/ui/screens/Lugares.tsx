@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { db } from '../../data/db'
 import { formatPorcentaje } from '../../domain/money'
 import type { Lugar } from '../../domain/types'
@@ -23,6 +23,8 @@ function FilaLugar({ lugar }: { lugar: Lugar }) {
 
 export default function Lugares() {
   const lugares = useLiveQuery(() => db.lugares.toArray(), [])
+  // Más → Lugares archivados llega con ?archivados=1 para mostrarlos ya abiertos.
+  const [params] = useSearchParams()
   const porNombre = (a: Lugar, b: Lugar) => a.nombre.localeCompare(b.nombre, 'es')
   const activos = lugares?.filter((l) => !l.archivado).sort(porNombre) ?? []
   const archivados = lugares?.filter((l) => l.archivado).sort(porNombre) ?? []
@@ -51,7 +53,7 @@ export default function Lugares() {
       </Link>
 
       {archivados.length > 0 && (
-        <details className="archivados">
+        <details className="archivados" open={params.get('archivados') === '1'}>
           <summary>Archivados ({archivados.length})</summary>
           <Card flush as="ul" className="lista">
             {archivados.map((l) => (

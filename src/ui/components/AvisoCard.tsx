@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Aviso } from '../../domain/avisos'
 import { nombrePeriodo, type Periodo } from '../../domain/periodos'
@@ -13,21 +13,6 @@ interface AvisoCardProps {
   lugar?: Lugar
   onNoMePagaron?: (lugarId: string, periodo: Periodo) => void
   onCompartirReclamo?: (lugarId: string) => void
-}
-
-/** Botón que todavía no hace nada (se conecta en una tarea posterior): deshabilitado y con la explicación para lectores de pantalla. */
-function BotonPronto({ children }: { children: string }) {
-  const id = useId()
-  return (
-    <>
-      <Button variante="secundario" disabled title="Disponible pronto" aria-describedby={id}>
-        {children}
-      </Button>
-      <span id={id} className="sr-only">
-        Disponible pronto
-      </span>
-    </>
-  )
 }
 
 interface Contenido {
@@ -52,8 +37,11 @@ function contenido(
           ? 'Todavía no hiciste una copia de seguridad'
           : `Hace ${plural(aviso.diasSinCopia, 'día', 'días')} que no hacés una copia de seguridad`,
       lineas: [],
-      // Se conecta en la Tarea 16 (copia de seguridad).
-      acciones: <BotonPronto>Hacer copia ahora</BotonPronto>,
+      acciones: (
+        <Link className="btn btn--secundario" to="/mas/copia">
+          Hacer copia ahora
+        </Link>
+      ),
     }
   }
   if (!lugar) return null
