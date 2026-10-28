@@ -41,7 +41,7 @@ test('flujo completo de un mes', async ({ page, context }, testInfo) => {
   await page.getByLabel('Lo que pagó el cliente').fill('200000')
   await page.getByLabel('Descuento antes del % (opcional)').fill('50000')
   await expect(page.locator('.resultado__monto')).toHaveText('$ 60.000')
-  await page.getByRole('button', { name: 'Guardar' }).click()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
 
   // 3. Inicio muestra la tarjeta del lugar con $ 60.000.
   const tarjeta = page.getByRole('link', { name: /Consultorio Sur/ })

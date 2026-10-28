@@ -49,8 +49,8 @@ async function periodoPagado(lugarId: string) {
   return previo
 }
 
-const OTRO_BOTON = 'Anotar otro trabajo (este se guarda)'
-const OTRO_TEXTO = 'Guardar y anotar otro'
+const OTRO_BOTON = 'Guardar y anotar otro'
+const OTRO_TEXTO = OTRO_BOTON
 const FECHA_PAPEL = '2026-05-03'
 
 async function ponerFecha(user: ReturnType<typeof userEvent.setup>, fecha: string) {

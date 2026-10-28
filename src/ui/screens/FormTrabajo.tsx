@@ -568,8 +568,6 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
                 block
                 disabled={guardando}
                 className="form__guardar"
-                // El e2e (y quien busque "Guardar" por nombre) encuentra solo el botón principal.
-                aria-label="Anotar otro trabajo (este se guarda)"
                 onClick={() => guardar(true)}
               >
                 Guardar y anotar otro
