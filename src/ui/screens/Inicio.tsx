@@ -63,13 +63,14 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
   const avisos = useMemo(
     () =>
       calcularAvisos({
-        hoy, lugares: activos, trabajos, pagos,
+        hoy, lugares, trabajos, pagos,
         ultimaCopia: datos.ultimaCopia, recordatorioDias: datos.recordatorioDias, hayDatos,
       }),
-    [hoy, activos, trabajos, pagos, datos.ultimaCopia, datos.recordatorioDias, hayDatos],
+    [hoy, lugares, trabajos, pagos, datos.ultimaCopia, datos.recordatorioDias, hayDatos],
   )
 
-  const lugarDe = (id: string) => activos.find((l) => l.id === id)
+  // Los avisos incluyen a los lugares archivados: una deuda no se pierde por archivar el lugar.
+  const lugarDe = (id: string) => lugares.find((l) => l.id === id)
   const clave = (a: Aviso) => (a.tipo === 'COPIA' ? 'copia' : `${a.tipo}-${a.lugarId}-${'periodo' in a ? a.periodo.fin : ''}`)
 
   async function confirmarNoMePagaron() {
@@ -86,7 +87,8 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
     }
   }
 
-  const sinLugares = activos.length === 0
+  const sinLugares = lugares.length === 0
+  const sinActivos = activos.length === 0
   return (
     <section className="inicio">
       <h1 className="sr-only">Inicio</h1>
@@ -128,6 +130,13 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
           <p className="vacio__texto">Empezá agregando los lugares donde trabajás</p>
           <Link className="btn btn--primario" to="/lugares/nuevo">
             Agregar lugar
+          </Link>
+        </Card>
+      ) : sinActivos ? (
+        <Card className="vacio">
+          <p className="vacio__texto">No tenés lugares activos.</p>
+          <Link className="btn btn--secundario" to="/lugares">
+            Ver lugares
           </Link>
         </Card>
       ) : (

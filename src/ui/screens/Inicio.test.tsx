@@ -226,6 +226,52 @@ describe('avisos', () => {
   })
 })
 
+describe('lugares archivados', () => {
+  test('un lugar archivado con trabajos sin pagar sigue avisando, aunque no tenga tarjeta', async () => {
+    const activo = await lugarFijo('ULTIMO', 'Consultorio Sur')
+    const viejo = await lugarFijo('ULTIMO', 'Consultorio Viejo')
+    await copiaAlDia()
+    const t = await septiembre(viejo)
+    await db.trabajos.update(t.corona, { estado: 'NO_PAGADO' })
+    await archivarLugar(viejo, true)
+    renderInicio()
+
+    expect(await screen.findByText('Consultorio Viejo: te deben $ 45.000')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver detalle' })).toHaveAttribute('href', `/lugares/${viejo}`)
+    expect(screen.getByRole('link', { name: /Consultorio Sur/ })).toHaveAttribute('href', `/lugares/${activo}`)
+    expect(within(screen.getByRole('heading', { name: 'Por lugar' }).parentElement!).queryByRole('link', { name: /Consultorio Viejo/ })).not.toBeInTheDocument()
+  })
+
+  test('un lugar archivado con el pago atrasado sigue ofreciendo "No me pagaron"', async () => {
+    const viejo = await lugarQuePagaEl25('Consultorio Viejo')
+    await copiaAlDia()
+    await septiembre(viejo)
+    await archivarLugar(viejo, true)
+    const user = renderInicio()
+
+    expect(await screen.findByText('Consultorio Viejo: sin pago registrado')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'No me pagaron' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'No me pagaron' }))
+    expect(await screen.findByText('Consultorio Viejo: te deben $ 138.000')).toBeInTheDocument()
+  })
+
+  test('con todos los lugares archivados muestra el mes y las deudas, sin el estado vacío ni el botón flotante', async () => {
+    const viejo = await lugarFijo('ULTIMO', 'Consultorio Viejo')
+    await copiaAlDia()
+    const t = await septiembre(viejo)
+    await db.trabajos.update(t.corona, { estado: 'NO_PAGADO' })
+    await archivarLugar(viejo, true)
+    renderInicio()
+
+    expect(await screen.findByText('Consultorio Viejo: te deben $ 45.000')).toBeInTheDocument()
+    expect(screen.getByText('Octubre 2026 · hasta hoy')).toBeInTheDocument()
+    expect(screen.getByText('No tenés lugares activos.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver lugares' })).toHaveAttribute('href', '/lugares')
+    expect(screen.queryByText('Empezá agregando los lugares donde trabajás')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '+ Anotar trabajo' })).not.toBeInTheDocument()
+  })
+})
+
 describe('por lugar', () => {
   test('tarjeta por lugar con total del período en curso', async () => {
     const centro = await lugarFijo()
