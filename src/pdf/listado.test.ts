@@ -63,6 +63,14 @@ describe('filasListado', () => {
     expect(filas[1][4]).toBe('')
   })
 
+  test('un trabajo "lo que me tocó" de un lugar por porcentaje deja vacíos pagó y descuento y muestra su monto', () => {
+    const tocado = trabajo({ id: 'd', montoCliente: null, descuento: null, porcentajeBp: null, monto: 7000000 })
+    const d = datos({ trabajos: [tocado] })
+
+    expect(filasListado(d)[0]).toEqual(['26/09', 'Corona', 'Juan P.', '', '', '$ 70.000'])
+    expect(JSON.stringify(contenidoListado(d))).not.toMatch(/null|NaN|undefined/)
+  })
+
   test('sin notas no incluye la columna Nota', () => {
     const d = datos({ incluirNotas: false })
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -92,7 +92,8 @@ describe('guardar y anotar otro', () => {
     expect(screen.getByLabelText('Descuento antes del % (opcional)')).toHaveValue('')
     expect(screen.queryByLabelText('Motivo del descuento (opcional)')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Nota (opcional)')).toHaveValue('')
-    expect(screen.getByLabelText('¿Qué hiciste?')).toHaveFocus()
+    // El foco lo pone un efecto, en una tarea posterior: se espera.
+    await waitFor(() => expect(screen.getByLabelText('¿Qué hiciste?')).toHaveFocus())
     expect(screen.getByRole('button', { name: OTRO_BOTON })).toBeEnabled()
 
     // El siguiente se guarda como un trabajo nuevo, no pisa el anterior.
@@ -113,7 +114,7 @@ describe('guardar y anotar otro', () => {
     expect(await screen.findByText('Guardado: Arreglo · $ 38.000 · ' + new Date().getDate() + ' ' + MES_ACTUAL)).toBeInTheDocument()
     expect(tiposDeTrabajo().every((r) => !(r as HTMLInputElement).checked)).toBe(true)
     expect(screen.getByLabelText('Nota (opcional)')).toHaveValue('')
-    expect(tiposDeTrabajo()[0]).toHaveFocus()
+    await waitFor(() => expect(tiposDeTrabajo()[0]).toHaveFocus())
     expect(await fechaElegida()).toBe(hoy())
     expect(await db.trabajos.toArray()).toMatchObject([{ descripcion: 'Arreglo', monto: 3800000, nota: 'Paciente' }])
   })
@@ -128,7 +129,7 @@ describe('guardar y anotar otro', () => {
     expect(await screen.findByText(/^Guardado: Radiografía · \$ 12\.500 · /)).toBeInTheDocument()
     expect(screen.getByLabelText('Descripción')).toHaveValue('')
     expect(screen.getByLabelText('Monto que te corresponde')).toHaveValue('')
-    expect(screen.getByLabelText('Descripción')).toHaveFocus()
+    await waitFor(() => expect(screen.getByLabelText('Descripción')).toHaveFocus())
   })
 
   test('con datos inválidos muestra los errores y no guarda ni limpia', async () => {

@@ -30,6 +30,8 @@ test('flujo completo de un mes', async ({ page, context }, testInfo) => {
   await page.getByLabel('Desde el día').fill('21')
   await page.getByLabel('Hasta el día').fill('31')
   await page.getByRole('button', { name: 'Guardar' }).click()
+  // Al crear un lugar se ofrece cargar los meses anteriores: acá no.
+  await page.getByRole('dialog', { name: '¿Ya trabajabas en Consultorio Sur?' }).getByRole('button', { name: 'Ahora no' }).click()
   await expect(page.getByRole('heading', { name: 'Lugares' })).toBeVisible()
   await expect(page.getByText('Consultorio Sur')).toBeVisible()
 

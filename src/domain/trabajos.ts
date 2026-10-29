@@ -3,7 +3,8 @@ import type { TipoTrabajo } from './types';
 
 export type EntradaTrabajo =
   | { forma: 'ARANCEL_FIJO'; tipo: TipoTrabajo | null; otroNombre?: string; otroMonto?: Centavos | null }
-  | { forma: 'PORCENTAJE'; descripcion: string; montoCliente: Centavos | null; descuento: Centavos | null; porcentajeBp: number };
+  | { forma: 'PORCENTAJE'; descripcion: string; montoCliente: Centavos | null; descuento: Centavos | null; porcentajeBp: number }
+  | { forma: 'MONTO_DIRECTO'; descripcion: string; monto: Centavos | null };
 
 export type ErrorTrabajo = 'FALTA_TIPO' | 'FALTA_DESCRIPCION' | 'MONTO_INVALIDO' | 'DESCUENTO_MAYOR' | 'PORCENTAJE_INVALIDO';
 
@@ -32,6 +33,13 @@ export function calcularTrabajo(e: EntradaTrabajo): ResultadoTrabajo {
     if (!descripcion) return error('FALTA_DESCRIPCION');
     if (!montoValido(e.otroMonto)) return error('MONTO_INVALIDO');
     return { ok: true, monto: e.otroMonto, descripcion, detalle: '' };
+  }
+
+  if (e.forma === 'MONTO_DIRECTO') {
+    const descripcion = e.descripcion.trim();
+    if (!descripcion) return error('FALTA_DESCRIPCION');
+    if (!montoValido(e.monto)) return error('MONTO_INVALIDO');
+    return { ok: true, monto: e.monto, descripcion, detalle: '' };
   }
 
   const descripcion = e.descripcion.trim();

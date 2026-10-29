@@ -368,6 +368,10 @@ select.input {
   margin-top: 16px;
 }
 
+.periodo__anteriores {
+  margin-top: 16px;
+}
+
 .archivados {
   margin-top: 24px;
 }
@@ -1195,6 +1199,18 @@ a.screen-header__back {
 
 .avisos .field__error {
   margin: 0;
+}
+
+/* Línea discreta que lleva a "Me deben" (Inicio y período del lugar) */
+.enlace-deudas {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  font-size: 0.9375rem;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .aviso-card {
@@ -2042,4 +2058,160 @@ button.lugar-row {
 .teclado__tecla:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* Me deben: un bloque por lugar, con sus períodos adeudados */
+.me-deben {
+  margin-bottom: 12px;
+}
+
+.me-deben__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+}
+
+.me-deben__lugar {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.me-deben__total {
+  margin: 0;
+  font-weight: 700;
+  color: var(--neg);
+}
+
+.me-deben__periodo {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.me-deben__periodo-nombre {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.me-deben__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.me-deben__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.me-deben__reclamo-mes {
+  margin-top: 8px;
+}
+
+.me-deben__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* Cargar meses anteriores: ‹ mes › para elegir el período */
+.selector-mes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.selector-mes__periodo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.selector-mes__nombre {
+  font-weight: 600;
+}
+
+.selector-mes__cantidad {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* Cargar meses anteriores: la fila para anotar los trabajos de corrido */
+.fila-carga .field {
+  margin-bottom: 12px;
+}
+
+.fila-carga__campos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 0 12px;
+}
+
+.fila-carga__campos > :only-child {
+  grid-column: 1 / -1;
+}
+
+.fila-carga__cuenta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.fila-carga__cuenta strong {
+  font-size: 1rem;
+  color: var(--text);
+}
+
+/* Cargar meses anteriores: cómo terminó el mes */
+.cierre__opciones {
+  min-width: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.cierre__titulo {
+  margin: 0 0 4px;
+  padding: 0;
+  font-weight: 700;
+}
+
+.cierre__opcion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+.cierre__radio {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.cierre__aviso {
+  margin: 0 0 12px;
+}
+
+.cierre__acciones {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
 }

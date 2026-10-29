@@ -6,6 +6,7 @@ import { db } from '../../data/db'
 import { cerrarPeriodo, cobrarDeuda, noMePagaron } from '../../data/pagos'
 import { calcularAvisos, type Aviso } from '../../domain/avisos'
 import { resumenPeriodo } from '../../domain/conciliacion'
+import { avisoDeuda, deudasPorLugar, soloViejas } from '../../domain/deudas'
 import { formatFechaCorta, mesClave, nombreMes, type FechaISO } from '../../domain/dates'
 import type { Centavos } from '../../domain/money'
 import { nombrePeriodo, periodoQueContiene, type Periodo } from '../../domain/periodos'
@@ -82,6 +83,10 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
     [hoy, lugares, trabajos, pagos, datos.ultimaCopia, datos.recordatorioDias, hayDatos],
   )
 
+  // Las deudas de más de 2 meses no son tarjeta: quedan en una línea que lleva a "Me deben" (archivados incluidos).
+  const deudas = useMemo(() => deudasPorLugar({ hoy, lugares, trabajos, pagos }), [hoy, lugares, trabajos, pagos])
+  const deudaVieja = deudas.reduce((suma, d) => suma + (soloViejas(d)?.monto ?? 0), 0)
+
   // Los avisos incluyen a los lugares archivados: una deuda no se pierde por archivar el lugar.
   const lugarDe = (id: string) => lugares.find((l) => l.id === id)
   const clave = (a: Aviso) => (a.tipo === 'COPIA' ? 'copia' : `${a.tipo}-${a.lugarId}-${'periodo' in a ? a.periodo.fin : ''}`)
@@ -150,13 +155,19 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
               }}
               onYaMeLoPagaron={setCobrando}
               onCompartirReclamo={(lugarId) => {
-                const lugar = lugarDe(lugarId)
-                const deuda = avisos.find((x) => x.tipo === 'DEUDA' && x.lugarId === lugarId)
-                if (lugar && deuda?.tipo === 'DEUDA') setReclamo(datosReclamo(lugar, deuda, pagos, hoy))
+                // La tarjeta solo muestra lo reciente, pero el reclamo lleva todas las deudas del lugar.
+                const deuda = deudas.find((d) => d.lugar.id === lugarId)
+                if (deuda) setReclamo(datosReclamo(deuda.lugar, avisoDeuda(deuda), pagos, hoy))
               }}
             />
           ))}
         </section>
+      )}
+
+      {deudaVieja > 0 && (
+        <Link className="enlace-deudas" to="/mas/me-deben">
+          {`Te deben ${pesosJuntos(deudaVieja)} de meses anteriores · Ver`}
+        </Link>
       )}
 
       {sinLugares ? (

@@ -3,8 +3,12 @@ import { sumarDias } from './dates';
 import {
   INICIO_DE_LOS_TIEMPOS,
   cambiarDiaCierre,
+  diasDelPeriodo,
+  fechaPagoPropuesta,
   nombrePeriodo,
+  periodoAnterior,
   periodoQueContiene,
+  periodoSiguiente,
   periodosEntre,
   ventanaPago,
 } from './periodos';
@@ -111,4 +115,37 @@ test('los períodos son contiguos a través de varios cambios de regla', () => {
   // periodosEntre recorre esos mismos períodos sin huecos.
   const ps = periodosEntre(r, '2026-09-01', '2028-06-30');
   for (let i = 0; i < ps.length - 1; i++) expect(ps[i + 1].fin).toBe(sumarDias(ps[i].inicio, -1));
+});
+
+test('periodoAnterior y periodoSiguiente en un lugar que cierra el 15', () => {
+  const p = { inicio: '2026-12-16', fin: '2027-01-15' };
+  expect(periodoAnterior(d15, p)).toEqual({ inicio: '2026-11-16', fin: '2026-12-15' });
+  expect(periodoSiguiente(d15, periodoAnterior(d15, p))).toEqual(p);
+});
+test('periodoAnterior recorre sin huecos ni repetidos al cruzar un cambio de regla', () => {
+  const reglas = [
+    { vigenteDesde: INICIO_DE_LOS_TIEMPOS, dia: 15 },
+    { vigenteDesde: '2026-07-16', dia: 'ULTIMO' as const },
+  ];
+  let p = periodoQueContiene(reglas, '2027-01-10');
+  for (let i = 0; i < 12; i++) {
+    const ant = periodoAnterior(reglas, p);
+    expect(ant.fin).toBe(sumarDias(p.inicio, -1));
+    expect(ant.inicio <= ant.fin).toBe(true);
+    expect(periodoSiguiente(reglas, ant)).toEqual(p);
+    p = ant;
+  }
+});
+test('diasDelPeriodo llega hasta fin, o hasta hoy si el período sigue abierto', () => {
+  const p = { inicio: '2026-12-16', fin: '2027-01-15' };
+  const dias = diasDelPeriodo(p, '2027-03-01');
+  expect(dias).toHaveLength(31);
+  expect(dias[0]).toBe('2026-12-16');
+  expect(dias.at(-1)).toBe('2027-01-15');
+  expect(diasDelPeriodo(p, '2027-01-03').at(-1)).toBe('2027-01-03');
+});
+test('fechaPagoPropuesta es el inicio de la ventana, sin pasar de hoy', () => {
+  const p = { inicio: '2026-08-01', fin: '2026-08-31' };
+  expect(fechaPagoPropuesta(p, 1, 10, '2026-10-20')).toBe('2026-09-01');
+  expect(fechaPagoPropuesta(p, 1, 10, '2026-08-20')).toBe('2026-08-20');
 });

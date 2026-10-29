@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { tienePin } from '../../data/pin'
 import { db } from '../../data/db'
+import { deudasPorLugar } from '../../domain/deudas'
 import type { Lugar } from '../../domain/types'
 import Card from '../components/Card'
 import Cargando from '../components/Cargando'
 import { useHoy } from '../hooks/useHoy'
+import { pesosJuntos } from '../pesos'
 import FilaMas from './mas/FilaMas'
 import RecordatoriosCalendario from './mas/RecordatoriosCalendario'
 import { plural } from './periodo/utils'
@@ -27,13 +29,20 @@ function useAvisoDeNavegacion(): string | null {
   return aviso
 }
 
-/** Más: copia de seguridad, categorías, PIN, lugares archivados, recordatorios del calendario e instalación. */
+/** Más: copia de seguridad, lo que te deben, meses anteriores, categorías, PIN, lugares archivados, recordatorios del calendario e instalación. */
 export default function Mas() {
   const hoy = useHoy()
   const lugares = useLiveQuery(() => db.lugares.toArray(), [])
+  const deuda = useLiveQuery(
+    async () => {
+      const [lugares, trabajos, pagos] = await Promise.all([db.lugares.toArray(), db.trabajos.toArray(), db.pagos.toArray()])
+      return deudasPorLugar({ hoy, lugares, trabajos, pagos }).reduce((suma, d) => suma + d.monto, 0)
+    },
+    [hoy],
+  )
   const conPin = useLiveQuery(() => tienePin(), [])
   const aviso = useAvisoDeNavegacion()
-  if (lugares === undefined || conPin === undefined) return <Cargando />
+  if (lugares === undefined || conPin === undefined || deuda === undefined) return <Cargando />
 
   const activos = lugares.filter((l) => !l.archivado).sort(porNombre)
   const archivados = lugares.filter((l) => l.archivado).length
@@ -49,6 +58,12 @@ export default function Mas() {
       <Card flush as="ul" className="lista">
         <li>
           <FilaMas nombre="Copia de seguridad" detalle="Guardá tus datos fuera del celular" to="/mas/copia" />
+        </li>
+        <li>
+          <FilaMas nombre="Me deben" detalle={deuda > 0 ? pesosJuntos(deuda) : 'Nada'} to="/mas/me-deben" />
+        </li>
+        <li>
+          <FilaMas nombre="Cargar meses anteriores" detalle="Los trabajos de meses que ya pasaron" to="/mas/anteriores" />
         </li>
         <li>
           <FilaMas nombre="Categorías" detalle="Gastos e ingresos" to="/mas/categorias" />

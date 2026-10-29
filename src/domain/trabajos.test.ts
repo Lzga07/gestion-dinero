@@ -55,4 +55,17 @@ describe('calcularTrabajo', () => {
   test('100 % es válido', () =>
     expect(calcularTrabajo({ forma: 'PORCENTAJE', descripcion: 'X', montoCliente: 100, descuento: null, porcentajeBp: 10000 }))
       .toMatchObject({ ok: true, monto: 100 }));
+
+  describe('MONTO_DIRECTO', () => {
+    test('calcula con la descripción recortada', () =>
+      expect(calcularTrabajo({ forma: 'MONTO_DIRECTO', descripcion: ' Arreglo ', monto: 4000000 }))
+        .toEqual({ ok: true, monto: 4000000, descripcion: 'Arreglo', detalle: '' }));
+    test.each([
+      [{ forma: 'MONTO_DIRECTO', descripcion: '  ', monto: 100 }, 'FALTA_DESCRIPCION'],
+      [{ forma: 'MONTO_DIRECTO', descripcion: 'X', monto: null }, 'MONTO_INVALIDO'],
+      [{ forma: 'MONTO_DIRECTO', descripcion: 'X', monto: 0 }, 'MONTO_INVALIDO'],
+      [{ forma: 'MONTO_DIRECTO', descripcion: 'X', monto: MAX_CENTAVOS + 1 }, 'MONTO_INVALIDO'],
+    ])('rechaza entradas inválidas %#', (e, err) =>
+      expect(calcularTrabajo(e as EntradaTrabajo)).toEqual({ ok: false, error: err }));
+  });
 });

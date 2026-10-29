@@ -122,7 +122,9 @@ function Formulario({ datos }: { datos: Datos | null }) {
   const [intentado, setIntentado] = useState(0)
   const [guardando, setGuardando] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
-  const [dialogo, setDialogo] = useState<'archivar' | 'borrar' | 'calendario' | 'descartar' | null>(null)
+  /** Id del lugar recién creado, para ofrecer cargarle los meses anteriores. */
+  const [idNuevo, setIdNuevo] = useState<string | null>(null)
+  const [dialogo, setDialogo] = useState<'archivar' | 'borrar' | 'calendario' | 'descartar' | 'anteriores' | null>(null)
 
   // Lo que se ve en el formulario, para saber si hay cambios sin guardar al volver.
   const foto = JSON.stringify({
@@ -201,7 +203,7 @@ function Formulario({ datos }: { datos: Datos | null }) {
     setGuardando(true)
     try {
       // Un solo guardado transaccional: lugar y lista de precios entran juntos o no entra nada.
-      await guardarLugarConTipos({
+      const idGuardado = await guardarLugarConTipos({
         id: lugar?.id,
         hoy: hoy(),
         datos: {
@@ -219,7 +221,11 @@ function Formulario({ datos }: { datos: Datos | null }) {
               .map((f) => ({ id: f.id, nombre: f.nombre.trim(), precio: f.precio as Centavos })),
       })
       const cambioPago = !!lugar && (lugar.pagoDesdeDia !== desde || lugar.pagoHastaDia !== hasta)
-      if (cambioPago) setDialogo('calendario')
+      if (!lugar) {
+        // Recién creado: es cuando más se necesita cargar lo que ya venías haciendo.
+        setIdNuevo(idGuardado)
+        setDialogo('anteriores')
+      } else if (cambioPago) setDialogo('calendario')
       else navigate('/lugares')
     } catch {
       setErrorGeneral('No se pudo guardar. Probá de nuevo.')
@@ -478,6 +484,17 @@ function Formulario({ datos }: { datos: Datos | null }) {
           peligro
           onConfirm={() => navigate('/lugares')}
           onCancel={() => setDialogo(null)}
+        />
+      )}
+      {dialogo === 'anteriores' && idNuevo && (
+        <ConfirmDialog
+          titulo={`¿Ya trabajabas en ${nombre.trim()}?`}
+          texto="Cargá los meses anteriores para tener todo en la app."
+          confirmar="Cargar meses anteriores"
+          cancelar="Ahora no"
+          // replace: así "Nuevo lugar" (ya guardado) no queda en el historial al volver con la ✕.
+          onConfirm={() => navigate(`/lugares/${idNuevo}/anteriores`, { replace: true })}
+          onCancel={() => navigate('/lugares', { replace: true })}
         />
       )}
       {dialogo === 'calendario' && (

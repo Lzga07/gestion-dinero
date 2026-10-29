@@ -1,5 +1,6 @@
 import { type FechaISO, diasEntre, hoy as fechaLocal } from './dates';
 import { conciliacionDelLugar } from './conciliacion';
+import { avisoDeuda, deudasDelLugar, soloRecientes } from './deudas';
 import type { Centavos } from './money';
 import { type Periodo, ventanaPago } from './periodos';
 import type { Lugar, Pago, Trabajo } from './types';
@@ -13,6 +14,8 @@ export type Aviso =
   | { tipo: 'SIN_CONCILIAR'; lugarId: string; periodo: Periodo; trabajos: Trabajo[]; faltaACuenta: Centavos; monto: Centavos }
   | { tipo: 'DEUDA'; lugarId: string; noPagados: Trabajo[]; deudasPlata: { periodo: Periodo; monto: Centavos }[]; monto: Centavos }
   | { tipo: 'COPIA'; diasSinCopia: number | null }; // null = nunca se hizo
+
+export type AvisoDeuda = Extract<Aviso, { tipo: 'DEUDA' }>;
 
 const suma = (ts: Trabajo[]): Centavos => ts.reduce((s, tr) => s + tr.monto, 0);
 const porNombre = (a: Lugar, b: Lugar) => a.nombre.localeCompare(b.nombre, 'es');
@@ -31,14 +34,13 @@ export function calcularAvisos(a: {
   const deudas: { lugar: Lugar; aviso: Aviso }[] = [];
 
   for (const lugar of a.lugares) {
-    const noPagados: Trabajo[] = [];
-    const deudasPlata: { periodo: Periodo; monto: Centavos }[] = [];
     const conciliacion = conciliacionDelLugar(lugar, a.trabajos, a.pagos);
+    // Solo la deuda reciente avisa en Inicio; la vieja vive en "Me deben".
+    const deuda = deudasDelLugar(lugar, conciliacion, a.hoy);
+    const reciente = deuda === null ? null : soloRecientes(deuda);
+    if (reciente !== null) deudas.push({ lugar, aviso: avisoDeuda(reciente) });
     for (const periodo of conciliacion.periodosConTrabajos) {
       const r = conciliacion.resumen(periodo);
-      noPagados.push(...r.noPagados);
-      if (r.deudaPlata > 0) deudasPlata.push({ periodo, monto: r.deudaPlata });
-
       const vencida = a.hoy > ventanaPago(periodo.fin, lugar.pagoDesdeDia, lugar.pagoHastaDia).hasta;
       if (!vencida || (r.pendientes.length === 0 && r.faltaACuenta === 0)) continue;
       if (r.tienePagos) {
@@ -55,10 +57,6 @@ export function calcularAvisos(a: {
           aviso: { tipo: 'PAGO_ATRASADO', lugarId: lugar.id, periodo, monto: r.teCorresponde },
         });
       }
-    }
-    const monto = suma(noPagados) + deudasPlata.reduce((s, d) => s + d.monto, 0);
-    if (noPagados.length > 0 || monto > 0) {
-      deudas.push({ lugar, aviso: { tipo: 'DEUDA', lugarId: lugar.id, noPagados, deudasPlata, monto } });
     }
   }
 

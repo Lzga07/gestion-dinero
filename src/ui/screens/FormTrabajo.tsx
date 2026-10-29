@@ -7,12 +7,7 @@ import { marcarNoPagado, yaMeLoPagaron } from '../../data/pagos'
 import { borrarTrabajo, guardarTrabajo } from '../../data/trabajos'
 import { formatFechaCorta, hoy } from '../../domain/dates'
 import { formatPorcentaje, type Centavos } from '../../domain/money'
-import {
-  calcularTrabajo,
-  type EntradaTrabajo,
-  type ErrorTrabajo,
-  type ResultadoTrabajo,
-} from '../../domain/trabajos'
+import { calcularTrabajo, type EntradaTrabajo, type ResultadoTrabajo } from '../../domain/trabajos'
 import type { Lugar, TipoTrabajo, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
@@ -25,16 +20,9 @@ import SelectorFecha from '../components/SelectorFecha'
 import useVolver from '../components/useVolver'
 import { leerFechaRecordada, recordarFecha } from '../hooks/fechaRecordada'
 import { pesosJuntos } from '../pesos'
+import { erroresDe, MENSAJES } from './trabajo-errores'
 
 const AVISO_EN_PAGO = 'Este trabajo ya está en un pago: cambiarlo modifica la conciliación de ese período'
-
-const MENSAJES: Record<ErrorTrabajo, string> = {
-  FALTA_TIPO: 'Elegí qué hiciste',
-  FALTA_DESCRIPCION: 'Escribí qué hiciste',
-  MONTO_INVALIDO: 'Ingresá un monto mayor a 0',
-  DESCUENTO_MAYOR: 'El descuento tiene que ser menor a lo que pagó el cliente',
-  PORCENTAJE_INVALIDO: 'Revisá el porcentaje del lugar',
-}
 
 /** Valor del chip "Otro…" (los ids de tipos son UUID: no chocan). */
 const OTRO = '__otro__'
@@ -97,21 +85,6 @@ function textoMudanza(trabajo: Trabajo, de: string, a: string): string {
     : `Este trabajo estaba marcado como no pagado en ${de}. Al moverlo vuelve a pendiente en ${a} y deja de ser una deuda de ${de}.`
 }
 
-/** Todos los errores a la vez: si falta la descripción, igual se revisa lo demás. */
-function erroresDe(entrada: EntradaTrabajo): Set<ErrorTrabajo> {
-  const errores = new Set<ErrorTrabajo>()
-  let actual = entrada
-  for (let i = 0; i < 2; i++) {
-    const r = calcularTrabajo(actual)
-    if (r.ok) break
-    errores.add(r.error)
-    if (r.error !== 'FALTA_DESCRIPCION') break
-    actual =
-      actual.forma === 'PORCENTAJE' ? { ...actual, descripcion: 'x' } : { ...actual, otroNombre: 'x' }
-  }
-  return errores
-}
-
 function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string | null }) {
   const volver = useVolver()
   const formRef = useRef<HTMLFormElement>(null)
@@ -165,6 +138,8 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
 
   const lugar = lugares.find((l) => l.id === lugarId) as Lugar
   const esPorcentaje = lugar.formaCobro === 'PORCENTAJE'
+  /** Trabajo de un lugar por porcentaje cargado solo con "lo que me tocó": sin precio del cliente ni %. Si cambia de lugar, deja de serlo. */
+  const esDirecto = esPorcentaje && !!trabajo && trabajo.lugarId === lugarId && trabajo.montoCliente === null
   /** El trabajo editado cambia a otro lugar estando pagado o no pagado (vuelve a pendiente al guardar). */
   const mudanza = !!trabajo && trabajo.lugarId !== lugarId && trabajo.estado !== 'PENDIENTE'
   const tiposLugar = tipos
@@ -187,7 +162,9 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
 
   // ---- Cálculo y validación ----
   let entrada: EntradaTrabajo
-  if (esPorcentaje) {
+  if (esDirecto) {
+    entrada = { forma: 'MONTO_DIRECTO', descripcion, monto: otroMonto } // "Lo que te tocó" usa el estado de otroMonto
+  } else if (esPorcentaje) {
     entrada = { forma: 'PORCENTAJE', descripcion, montoCliente, descuento, porcentajeBp: bp }
   } else if (seleccion === OTRO) {
     entrada = { forma: 'ARANCEL_FIJO', tipo: null, otroNombre, otroMonto }
@@ -196,7 +173,11 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
   }
   const res: ResultadoTrabajo = calcularTrabajo(entrada)
   const errores = erroresDe(entrada)
-  const hayInvalido = esPorcentaje ? clienteInvalido || descuentoInvalido : seleccion === OTRO && otroInvalido
+  const hayInvalido = esDirecto
+    ? otroInvalido
+    : esPorcentaje
+      ? clienteInvalido || descuentoInvalido
+      : seleccion === OTRO && otroInvalido
   const hayErrores = errores.size > 0 || hayInvalido
   const ver = intentado > 0
 
@@ -298,7 +279,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
     guardandoRef.current = true
     setGuardando(true)
     setConfirmacion('')
-    const conDescuento = esPorcentaje && descuento !== null && descuento > 0
+    const conDescuento = esPorcentaje && !esDirecto && descuento !== null && descuento > 0
     try {
       const { id, periodoYaPagado } = await guardarTrabajo({
         id: trabajo?.id ?? idGuardado.current ?? undefined,
@@ -307,10 +288,10 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
         descripcion: mismoTipo && trabajo ? trabajo.descripcion : res.descripcion,
         tipoTrabajoId: tipoElegido && !esPorcentaje ? tipoElegido.id : null,
         precioLista: tipoElegido && !esPorcentaje ? tipoElegido.precio : null,
-        montoCliente: esPorcentaje ? montoCliente : null,
+        montoCliente: esPorcentaje && !esDirecto ? montoCliente : null,
         descuento: conDescuento ? descuento : null,
         descuentoMotivo: conDescuento && motivo.trim() !== '' ? motivo.trim() : null,
-        porcentajeBp: esPorcentaje ? bp : null,
+        porcentajeBp: esPorcentaje && !esDirecto ? bp : null,
         monto: res.monto,
         nota: nota.trim(),
       })
@@ -405,37 +386,50 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
                   />
                 )}
               </Field>
-              <MoneyInput
-                key={`cliente-${otroN}`}
-                label="Lo que pagó el cliente"
-                value={montoCliente}
-                onChange={setMontoCliente}
-                onInvalidChange={setClienteInvalido}
-                error={errMonto(clienteInvalido)}
-              />
-              <MoneyInput
-                key={`descuento-${otroN}`}
-                label="Descuento antes del % (opcional)"
-                hint="Se resta de lo que pagó el cliente antes de aplicar el porcentaje."
-                value={descuento}
-                onChange={setDescuento}
-                onInvalidChange={setDescuentoInvalido}
-                error={errDescuento}
-              />
-              {(descuento !== null || descuentoInvalido) && (
-                <Field label="Motivo del descuento (opcional)">
-                  {(control) => (
-                    <input
-                      {...control}
-                      className="input"
-                      type="text"
-                      autoComplete="off"
-                      placeholder="Ej: laboratorio"
-                      value={motivo}
-                      onChange={(e) => setMotivo(e.target.value)}
-                    />
+              {esDirecto ? (
+                <MoneyInput
+                  key={`directo-${otroN}`}
+                  label="Lo que te tocó"
+                  value={otroMonto}
+                  onChange={setOtroMonto}
+                  onInvalidChange={setOtroInvalido}
+                  error={errMonto(otroInvalido)}
+                />
+              ) : (
+                <>
+                  <MoneyInput
+                    key={`cliente-${otroN}`}
+                    label="Lo que pagó el cliente"
+                    value={montoCliente}
+                    onChange={setMontoCliente}
+                    onInvalidChange={setClienteInvalido}
+                    error={errMonto(clienteInvalido)}
+                  />
+                  <MoneyInput
+                    key={`descuento-${otroN}`}
+                    label="Descuento antes del % (opcional)"
+                    hint="Se resta de lo que pagó el cliente antes de aplicar el porcentaje."
+                    value={descuento}
+                    onChange={setDescuento}
+                    onInvalidChange={setDescuentoInvalido}
+                    error={errDescuento}
+                  />
+                  {(descuento !== null || descuentoInvalido) && (
+                    <Field label="Motivo del descuento (opcional)">
+                      {(control) => (
+                        <input
+                          {...control}
+                          className="input"
+                          type="text"
+                          autoComplete="off"
+                          placeholder="Ej: laboratorio"
+                          value={motivo}
+                          onChange={(e) => setMotivo(e.target.value)}
+                        />
+                      )}
+                    </Field>
                   )}
-                </Field>
+                </>
               )}
             </>
           ) : (

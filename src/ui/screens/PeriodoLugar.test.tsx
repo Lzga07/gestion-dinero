@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { db } from '../../data/db'
 import { marcarNoPagado, registrarPago } from '../../data/pagos'
 import * as datosPagos from '../../data/pagos'
+import { archivarLugar } from '../../data/lugares'
 import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import ConfigLugar from './ConfigLugar'
 import PeriodoLugar from './PeriodoLugar'
@@ -471,5 +472,66 @@ describe('cerrar un período y cambiar el estado de un trabajo', () => {
     await waitFor(async () => expect(await db.pagos.count()).toBe(0))
 
     expect(await screen.findAllByRole('button', { name: 'Volver a pendiente' })).toHaveLength(3)
+  })
+})
+
+describe('deudas del lugar', () => {
+  test('un lugar con deuda reciente ofrece "Te deben $ X · Ver", que lleva a "Me deben"', async () => {
+    const lugarId = await lugarFijo()
+    const t = await septiembre(lugarId)
+    await marcarNoPagado(t.corona)
+    renderEn(`/lugares/${lugarId}`)
+
+    expect(await screen.findByText('Te deben $ 45.000 · Ver')).toHaveAttribute('href', '/mas/me-deben')
+  })
+
+  test('también cuenta las deudas viejas y las de otros períodos del lugar', async () => {
+    const lugarId = await lugarFijo()
+    await marcarNoPagado(await anotar(lugarId, '2026-07-10', 'Conducto', 85000))
+    await marcarNoPagado((await septiembre(lugarId)).corona)
+    renderEn(`/lugares/${lugarId}`) // se está mirando octubre, sin deuda propia
+
+    expect(await screen.findByText('Te deben $ 130.000 · Ver')).toHaveAttribute('href', '/mas/me-deben')
+  })
+
+  test('no cuenta las deudas de otros lugares', async () => {
+    const lugarId = await lugarFijo()
+    const otro = await lugarFijo('ULTIMO', 'Consultorio Sur')
+    await marcarNoPagado(await anotar(otro, '2026-09-10', 'Corona', 45000))
+    await anotar(lugarId, '2026-10-20', 'Limpieza', 25000)
+    renderEn(`/lugares/${lugarId}`)
+
+    await screen.findByRole('heading', { name: 'Clínica Centro' })
+    expect(screen.queryByText(/Te deben/)).not.toBeInTheDocument()
+  })
+
+  test('sin deudas no aparece el enlace', async () => {
+    const lugarId = await lugarFijo()
+    await octubre(lugarId)
+    renderEn(`/lugares/${lugarId}`)
+
+    await screen.findByRole('heading', { name: 'Clínica Centro' })
+    expect(screen.queryByText(/Te deben/)).not.toBeInTheDocument()
+  })
+})
+
+describe('meses anteriores', () => {
+  test('ofrece "Cargar meses anteriores", que lleva a la pantalla del lugar', async () => {
+    const lugarId = await lugarFijo()
+    renderEn(`/lugares/${lugarId}`)
+
+    expect(await screen.findByRole('link', { name: 'Cargar meses anteriores' })).toHaveAttribute(
+      'href',
+      `/lugares/${lugarId}/anteriores`,
+    )
+  })
+
+  test('un lugar archivado no lo ofrece', async () => {
+    const lugarId = await lugarFijo()
+    await archivarLugar(lugarId, true)
+    renderEn(`/lugares/${lugarId}`)
+
+    await screen.findByRole('heading', { name: 'Clínica Centro' })
+    expect(screen.queryByRole('link', { name: 'Cargar meses anteriores' })).not.toBeInTheDocument()
   })
 })

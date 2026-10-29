@@ -52,12 +52,14 @@ Aplica a **todas** las deudas, no solo a las cargadas desde el cuaderno: una deu
 
 ### 3.2 Inicio
 - La tarjeta de deuda de cada lugar ("Clínica: te deben $ X", con "Ya me lo pagaron" y "Compartir reclamo") pasa a incluir **solo las deudas recientes** de ese lugar. Si un lugar tiene solo deudas viejas, no tiene tarjeta.
+- Aunque la tarjeta muestre solo lo reciente, su **"Compartir reclamo" incluye todas las deudas del lugar**, recientes y viejas (lo mismo que el reclamo del lugar en "Me deben"). **[decisión del usuario, 2026-10-29]**
 - Si hay deudas viejas (de cualquier lugar, incluidos los archivados), Inicio muestra **una sola línea discreta**: *"Te deben $ 85.000 de meses anteriores · Ver"*, que lleva a "Me deben". Va después de las tarjetas de avisos. **[decisión del diseñador]** la ubicación y el texto exacto.
 
 ### 3.3 Pantalla "Me deben"
 - Ruta propia (p. ej. `/mas/me-deben`). Se llega desde la línea de Inicio, desde **Más → "Me deben"** y desde la pantalla del período de un lugar cuando ese lugar tiene deudas.
 - Muestra **todas** las deudas, recientes y viejas, para tener la vista completa en un lugar **[decisión del diseñador]**: agrupadas por lugar (con el total del lugar) y, dentro de cada lugar, por período (del más viejo al más nuevo), con los trabajos `NO_PAGADO` y las diferencias en plata de cada período.
 - Por lugar, las mismas acciones de hoy: **"Ya me lo pagaron"** (el diálogo actual de cobrar deuda, con todas las deudas de ese lugar) y **"Compartir reclamo"** (el PDF de reclamo actual, con todas las deudas de ese lugar).
+- Además, cada período tiene su propio botón **"Compartir reclamo de este mes"**: el mismo PDF de reclamo, pero solo con los trabajos `NO_PAGADO` y la diferencia en plata de ese período. **[decisión del usuario, 2026-10-29]**
 - Sin deudas: un texto tranquilo, "No te deben nada".
 - Incluye lugares archivados (una deuda no se pierde por archivar el lugar, como hoy).
 

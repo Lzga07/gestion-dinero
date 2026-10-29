@@ -507,6 +507,63 @@ describe('editar', () => {
   })
 })
 
+describe('editar: lo que me tocó', () => {
+  /** Trabajo de un lugar por porcentaje cargado solo con lo que le tocó a la persona. */
+  async function trabajoDirecto() {
+    const lugarId = await lugarPorcentaje()
+    const trabajoId = await anotarTrabajo(lugarId, '2026-10-05', 4000000)
+    await db.trabajos.update(trabajoId, {
+      descripcion: 'Corona', montoCliente: null, porcentajeBp: null, descuento: null, descuentoMotivo: null,
+    })
+    return { lugarId, trabajoId }
+  }
+
+  test('pide "Lo que te tocó" en vez de "Lo que pagó el cliente" y guarda el monto directo', async () => {
+    const { lugarId, trabajoId } = await trabajoDirecto()
+    const user = renderEn(`/trabajo/${trabajoId}`)
+
+    const monto = await screen.findByLabelText('Lo que te tocó')
+    expect(screen.getByLabelText('¿Qué hiciste?')).toHaveValue('Corona')
+    expect(monto).toHaveValue('$ 40.000')
+    expect(screen.queryByLabelText('Lo que pagó el cliente')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Descuento antes del % (opcional)')).not.toBeInTheDocument()
+
+    await user.clear(monto)
+    await user.type(monto, '45.000')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({
+      lugarId, descripcion: 'Corona', monto: 4500000, montoCliente: null, porcentajeBp: null,
+      descuento: null, descuentoMotivo: null,
+    })
+  })
+
+  test('al cambiar de lugar vuelve a pedir lo que pagó el cliente', async () => {
+    const { trabajoId } = await trabajoDirecto()
+    const otro = await lugarPorcentaje('Consultorio Norte', 5000)
+    const user = renderEn(`/trabajo/${trabajoId}`)
+    await screen.findByLabelText('Lo que te tocó')
+
+    await user.selectOptions(screen.getByLabelText('Lugar'), otro)
+    expect(screen.queryByLabelText('Lo que te tocó')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('Lo que pagó el cliente'), '100.000')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
+    expect(await db.trabajos.get(trabajoId)).toMatchObject({
+      lugarId: otro, montoCliente: 10000000, porcentajeBp: 5000, monto: 5000000,
+    })
+  })
+
+  test('un trabajo nuevo en ese lugar sigue pidiendo lo que pagó el cliente', async () => {
+    const lugarId = await lugarPorcentaje()
+    renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
+    expect(await screen.findByLabelText('Lo que pagó el cliente')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Lo que te tocó')).not.toBeInTheDocument()
+  })
+})
+
 describe('editar: casos delicados', () => {
   async function dosPeriodosPagados(lugarId: string) {
     const agosto = await anotarTrabajo(lugarId, '2026-08-10')

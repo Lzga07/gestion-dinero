@@ -113,11 +113,27 @@ test('DEUDA suma NO_PAGADO y deuda en plata del mismo lugar en un solo aviso', (
   const a = t('a', '2026-09-03', 10000000, 'PAGADO', 'p1');
   const b = t('b', '2026-09-10', 5000000, 'PAGADO', 'p1');
   const avisos = calcularAvisos({
-    ...sinCopia, hoy: '2026-11-05', trabajos: [c, a, b], pagos: [pago('p1', SEP.fin, 12000000, 'FINAL')],
+    ...sinCopia, hoy: '2026-10-31', trabajos: [c, a, b], pagos: [pago('p1', SEP.fin, 12000000, 'FINAL')],
   });
   expect(avisos).toEqual([
     { tipo: 'DEUDA', lugarId: 'L1', noPagados: [c], deudasPlata: [{ periodo: SEP, monto: 3000000 }], monto: 7000000 },
   ]);
+});
+
+describe('deuda vieja', () => {
+  const agosto = t('ag', '2026-08-10', 4000000, 'NO_PAGADO');
+  const octubre = t('oc', '2026-10-10', 1000000, 'NO_PAGADO');
+
+  test('el aviso de deuda solo junta deudas recientes', () => {
+    const avisos = calcularAvisos({ ...sinCopia, hoy: '2026-12-15', trabajos: [agosto, octubre] });
+    expect(avisos).toEqual([
+      { tipo: 'DEUDA', lugarId: 'L1', noPagados: [octubre], deudasPlata: [], monto: 1000000 },
+    ]);
+  });
+
+  test('un lugar con solo deuda vieja no tiene aviso de deuda', () => {
+    expect(calcularAvisos({ ...sinCopia, hoy: '2026-12-15', trabajos: [agosto] })).toEqual([]);
+  });
 });
 
 test('lugar archivado con deuda sigue avisando', () => {
