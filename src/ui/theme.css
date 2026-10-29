@@ -1837,6 +1837,24 @@ button.lugar-row {
   color: var(--accent);
 }
 
+/* Aviso de que la base tarda en contestar (en lugar de una pantalla vacía). */
+.cargando {
+  max-width: 320px;
+  margin: 32px auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.cargando__titulo {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
 /* Capa opaca que tapa toda la app (y los diálogos de abajo) hasta ingresar el PIN. */
 .bloqueo {
   position: fixed;

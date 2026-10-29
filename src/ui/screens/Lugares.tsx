@@ -4,6 +4,7 @@ import { db } from '../../data/db'
 import { formatPorcentaje } from '../../domain/money'
 import type { Lugar } from '../../domain/types'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import { diaCierreActual } from './lugar-utils'
 
 function resumen(l: Lugar): string {
@@ -33,6 +34,7 @@ export default function Lugares() {
     <section>
       <h1 className="screen-title">Lugares</h1>
 
+      {lugares === undefined && <Cargando />}
       {lugares && activos.length === 0 && (
         <Card>
           <p className="muted">Todavía no cargaste ningún lugar. Agregá el primero para empezar a anotar trabajos.</p>

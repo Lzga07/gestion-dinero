@@ -8,6 +8,7 @@ import { nombrePeriodo, type Periodo } from '../../domain/periodos'
 import type { Lugar, Pago, TipoPago, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
@@ -23,7 +24,7 @@ export default function RegistrarPago() {
   const [params] = useSearchParams()
   const volver = useVolver(id ? `/lugares/${id}` : '/lugares')
   const datos = useDatosLugar(id)
-  if (datos === undefined) return null // cargando
+  if (datos === undefined) return <Cargando />
   if (!datos.lugar) {
     return (
       <section>

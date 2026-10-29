@@ -10,6 +10,7 @@ import { periodoQueContiene, type DiaCierre } from '../../domain/periodos'
 import type { FormaCobro, Lugar, TipoTrabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Field from '../components/Field'
 import MoneyInput from '../components/MoneyInput'
@@ -57,7 +58,7 @@ export default function ConfigLugar() {
   }, [id])
 
   if (!id) return <Formulario key="nuevo" datos={null} />
-  if (datos === undefined) return null // cargando
+  if (datos === undefined) return <Cargando />
   if (datos !== null && !datos.lugar) {
     return (
       <section>

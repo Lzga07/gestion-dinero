@@ -7,6 +7,7 @@ import type { Ambito, Categoria, Lugar, Movimiento, Trabajo } from '../../domain
 import BarrasApiladas, { type Barra } from '../components/BarrasApiladas'
 import BarrasHorizontales from '../components/BarrasHorizontales'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import { useHoy } from '../hooks/useHoy'
 import { pesosJuntos } from '../pesos'
 
@@ -132,7 +133,7 @@ export default function Estadisticas() {
     () => (datos ? gastosPorCategoria(mes, datos.movimientos, datos.categorias, ambito === 'TODOS' ? null : ambito) : []),
     [datos, mes, ambito],
   )
-  if (datos === undefined || grafico === null) return null // cargando
+  if (datos === undefined || grafico === null) return <Cargando />
 
   const { barras, leyenda } = grafico
   const hayGanancias = barras.some((b) => b.total > 0)

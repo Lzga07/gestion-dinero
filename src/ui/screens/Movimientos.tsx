@@ -6,6 +6,7 @@ import { mesClave, moverMes, nombreMes } from '../../domain/dates'
 import type { Categoria, Lugar, Movimiento, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import { useHoy } from '../hooks/useHoy'
 import { pesosJuntos } from '../pesos'
 import { agruparPorDia, construirFilas, type Fila, type Filtro } from './movimientos/lista'
@@ -86,7 +87,7 @@ export default function Movimientos() {
         : [],
     [datos, mes, filtro, hoy],
   )
-  if (datos === undefined) return null // cargando
+  if (datos === undefined) return <Cargando />
 
   return (
     <section className="movimientos">
