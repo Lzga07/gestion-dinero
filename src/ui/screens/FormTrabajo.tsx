@@ -107,7 +107,7 @@ function erroresDe(entrada: EntradaTrabajo): Set<ErrorTrabajo> {
     errores.add(r.error)
     if (r.error !== 'FALTA_DESCRIPCION') break
     actual =
-      actual.forma === 'PORCENTAJE' ? { ...actual, descripcion: 'x' } : { ...actual, otroNombre: 'x' }
+      actual.forma === 'ARANCEL_FIJO' ? { ...actual, otroNombre: 'x' } : { ...actual, descripcion: 'x' }
   }
   return errores
 }

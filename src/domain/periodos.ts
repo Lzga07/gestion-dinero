@@ -69,6 +69,24 @@ export function periodoQueContiene(reglas: ReglaCierre[], fecha: FechaISO): Peri
   return { inicio, fin };
 }
 
+/** Período contiguo anterior (sin saltear ni repetir aunque haya cambiado la regla de cierre). */
+export function periodoAnterior(reglas: ReglaCierre[], p: Periodo): Periodo {
+  return periodoQueContiene(reglas, sumarDias(p.inicio, -1));
+}
+
+/** Período contiguo siguiente. */
+export function periodoSiguiente(reglas: ReglaCierre[], p: Periodo): Periodo {
+  return periodoQueContiene(reglas, sumarDias(p.fin, 1));
+}
+
+/** Días del período, de `inicio` a `fin` (o a `hoy`, si el período sigue abierto). */
+export function diasDelPeriodo(p: Periodo, hoy: FechaISO): FechaISO[] {
+  const ultimo = p.fin < hoy ? p.fin : hoy;
+  const dias: FechaISO[] = [];
+  for (let d = p.inicio; d <= ultimo; d = sumarDias(d, 1)) dias.push(d);
+  return dias;
+}
+
 /** Períodos que tocan [desde, hasta], del más nuevo al más viejo. */
 export function periodosEntre(reglas: ReglaCierre[], desde: FechaISO, hasta: FechaISO): Periodo[] {
   const lista: Periodo[] = [];
@@ -103,6 +121,12 @@ export function ventanaPago(
   const { y, m } = parseFecha(periodoFin);
   const sig = sumarMeses(y, m, 1);
   return { desde: diaAcotado(sig.y, sig.m, desdeDia), hasta: diaAcotado(sig.y, sig.m, hastaDia) };
+}
+
+/** Fecha de pago sugerida: el primer día de la ventana de pago, sin pasar de hoy. */
+export function fechaPagoPropuesta(p: Periodo, desdeDia: number, hastaDia: number, hoy: FechaISO): FechaISO {
+  const { desde } = ventanaPago(p.fin, desdeDia, hastaDia);
+  return desde < hoy ? desde : hoy;
 }
 
 /** "1 – 31 oct" (mismo mes) o "16 oct – 15 nov". */
