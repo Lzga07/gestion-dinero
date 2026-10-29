@@ -78,17 +78,16 @@ export default function Bloqueo({ onDesbloquear }: BloqueoProps) {
           <h1 className="bloqueo__titulo" id="bloqueo-titulo">
             Ingresá tu PIN
           </h1>
+          {/* Un punto por dígito sobre una línea, como un campo de texto: no hay lugares vacíos que delaten el largo. */}
           <div
             ref={pantalla}
-            className="pin-puntos"
+            className="pin-linea"
             role="group"
             aria-label={`${n} ${n === 1 ? 'dígito ingresado' : 'dígitos ingresados'}`}
             tabIndex={-1}
             data-foco-inicial
           >
-            {Array.from({ length: MAX_DIGITOS }, (_, i) => (
-              <span key={i} className={i < n ? 'pin-punto pin-punto--lleno' : 'pin-punto'} aria-hidden="true" />
-            ))}
+            <span aria-hidden="true">{'●'.repeat(n)}</span>
           </div>
           <p className="bloqueo__error" role={error ? 'alert' : undefined}>
             {error}
