@@ -10,6 +10,7 @@ import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import * as datosTrabajos from '../../data/trabajos'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { elegirFecha, fechaElegida } from '../test-fecha'
+import useVolver from '../components/useVolver'
 import MesesAnteriores from './MesesAnteriores'
 import FilaCarga from './anteriores/FilaCarga'
 import { anotar, septiembre } from './periodo/test-fixtures'
@@ -42,6 +43,12 @@ function renderEn(ruta: string) {
     </MemoryRouter>,
   )
   return user
+}
+
+/** Como la pantalla de un trabajo: tiene la ✕ que vuelve a donde se estaba (`useVolver`, igual que FormTrabajo). */
+function PantallaTrabajo() {
+  const volver = useVolver('/')
+  return <button onClick={volver}>Cerrar el trabajo</button>
 }
 
 const mes = () => screen.getByRole('group', { name: 'Mes' })
@@ -109,6 +116,71 @@ describe('MesesAnteriores', () => {
     const id = await lugarFijo()
     renderEn(`/lugares/${id}/anteriores?periodo=${encodeURIComponent(pedido)}`)
     expect(await screen.findByText('1 – 30 sep 2026')).toBeInTheDocument()
+  })
+
+  test('el mes, el porcentaje y el modo van en la URL y sobreviven a tocar un trabajo y volver', async () => {
+    const id = await lugarPorcentaje()
+    const trabajo = await anotar(id, '2026-08-12', 'Corona', 45000)
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={[`/lugares/${id}/anteriores`]}>
+        <Routes>
+          <Route path="/lugares/:id/anteriores" element={<MesesAnteriores />} />
+          <Route path="/trabajo/:id" element={<PantallaTrabajo />} />
+        </Routes>
+        <Ubicacion />
+      </MemoryRouter>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Mes anterior' }))
+    const pct = await screen.findByLabelText('Porcentaje de este mes')
+    await user.clear(pct)
+    await user.type(pct, '37,5')
+    await user.selectOptions(screen.getByLabelText('Anoté:'), 'Lo que me tocó')
+    expect(screen.getByTestId('ubicacion')).toHaveTextContent(`/lugares/${id}/anteriores?periodo=2026-08-31&porcentaje=3750&modo=DIRECTO`)
+
+    // Se toca el trabajo, se edita y se vuelve con la ✕ (que hace navigate(-1)).
+    await user.click(within(await screen.findByRole('list', { name: 'Trabajos del mes' })).getByRole('link', { name: /Corona/ }))
+    expect(screen.getByTestId('ubicacion')).toHaveTextContent(`/trabajo/${trabajo}`)
+    await user.click(screen.getByRole('button', { name: 'Cerrar el trabajo' }))
+
+    expect(await screen.findByText('1 – 31 ago 2026')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Anoté:')).toHaveValue('DIRECTO')
+    await user.selectOptions(screen.getByLabelText('Anoté:'), 'Lo que pagó el cliente')
+    expect(screen.getByLabelText('Porcentaje de este mes')).toHaveValue('37,5')
+  })
+
+  test('"Seguir con" también pone el mes siguiente en la URL', async () => {
+    const id = await lugarFijo()
+    await anotar(id, '2026-08-10', 'Limpieza', 25000)
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={[`/lugares/${id}/anteriores?periodo=2026-08-31`]}>
+        <Routes>
+          <Route path="/lugares/:id/anteriores" element={<MesesAnteriores />} />
+        </Routes>
+        <Ubicacion />
+      </MemoryRouter>,
+    )
+    await user.click(await screen.findByRole('radio', { name: 'No me pagaron' }))
+    await user.click(screen.getByRole('button', { name: 'Listo' }))
+    await user.click(await screen.findByRole('button', { name: 'Seguir con 1 – 30 sep 2026' }))
+
+    expect(await screen.findByText('1 – 30 sep 2026')).toBeInTheDocument()
+    expect(screen.getByTestId('ubicacion')).toHaveTextContent(`/lugares/${id}/anteriores?periodo=2026-09-30`)
+  })
+
+  test.each([
+    ['?porcentaje=abc&modo=XX', '40', 'CLIENTE'],
+    ['?porcentaje=0&modo=directo', '40', 'CLIENTE'],
+    ['?porcentaje=10001', '40', 'CLIENTE'],
+    ['?porcentaje=37.5', '40', 'CLIENTE'],
+    ['?porcentaje=3750&modo=CLIENTE', '37,5', 'CLIENTE'],
+    ['?porcentaje=3750&modo=DIRECTO', '37,5', 'DIRECTO'],
+  ])('%s abre con porcentaje %s y modo %s', async (query, porcentaje, modo) => {
+    const id = await lugarPorcentaje()
+    renderEn(`/lugares/${id}/anteriores${query}`)
+    expect(await screen.findByLabelText('Anoté:')).toHaveValue(modo)
+    if (modo === 'CLIENTE') expect(screen.getByLabelText('Porcentaje de este mes')).toHaveValue(porcentaje)
   })
 
   test('lista los trabajos del período por fecha, con el total, y tocar uno abre su pantalla', async () => {

@@ -26,7 +26,14 @@ function enOrden(trabajos: Trabajo[]): Trabajo[] {
   )
 }
 
-/** Cargar meses anteriores (`/lugares/:id/anteriores?periodo=<fin>`): elegir un mes ya pasado de un lugar y ver lo cargado. */
+/** `?porcentaje=<bp>`: puntos básicos enteros en el rango que acepta la fila (más de 0 y hasta 100 %); si no, null. */
+function porcentajePedido(pedido: string | null): number | null {
+  if (pedido === null || !/^\d+$/.test(pedido)) return null
+  const bp = Number(pedido)
+  return bp > 0 && bp <= 10000 ? bp : null
+}
+
+/** Cargar meses anteriores (`/lugares/:id/anteriores?periodo=<fin>&porcentaje=<bp>&modo=CLIENTE|DIRECTO`): elegir un mes ya pasado de un lugar y ver lo cargado. */
 export default function MesesAnteriores() {
   const { id } = useParams()
   const volver = useVolver(id ? `/lugares/${id}` : '/lugares')
@@ -50,18 +57,26 @@ export default function MesesAnteriores() {
 function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; pagos: Pago[] }) {
   const hoy = useHoy()
   const navigate = useNavigate()
-  const [params] = useSearchParams()
-  // Arranca en `?periodo=` si es un mes ya pasado que se puede cargar; si no, en el anterior al actual.
-  const [periodo, setPeriodo] = useState<Periodo>(() => {
-    const pedido = periodoPedido(lugar, params.get('periodo'), hoy)
-    return periodoOfrecido(lugar, pedido, hoy)
-      ? pedido
-      : periodoAnterior(lugar.reglasCierre, periodoQueContiene(lugar.reglasCierre, hoy))
-  })
-
+  const [params, setParams] = useSearchParams()
+  // El mes, el porcentaje y el modo viven en la URL (`?periodo=&porcentaje=&modo=`): así sobreviven a tocar un trabajo y volver.
+  // Mes: `?periodo=` si es un mes ya pasado que se puede cargar; si no, el anterior al actual.
+  const pedido = periodoPedido(lugar, params.get('periodo'), hoy)
+  const periodo = periodoOfrecido(lugar, pedido, hoy)
+    ? pedido
+    : periodoAnterior(lugar.reglasCierre, periodoQueContiene(lugar.reglasCierre, hoy))
   // El porcentaje y el modo de carga son del mes que se está cargando (no del lugar) y se recuerdan al cambiar de mes.
-  const [porcentajeBp, setPorcentajeBp] = useState(lugar.porcentajeBp ?? 0)
-  const [modo, setModo] = useState<'CLIENTE' | 'DIRECTO'>('CLIENTE')
+  const porcentajeBp = porcentajePedido(params.get('porcentaje')) ?? lugar.porcentajeBp ?? 0
+  const modo = params.get('modo') === 'DIRECTO' ? 'DIRECTO' : 'CLIENTE'
+  const cambiarUrl = (cambios: Record<string, string>) =>
+    setParams(
+      (actual) => {
+        const nuevos = new URLSearchParams(actual)
+        for (const [clave, valor] of Object.entries(cambios)) nuevos.set(clave, valor)
+        return nuevos
+      },
+      { replace: true },
+    )
+  const irAlPeriodo = (p: Periodo) => cambiarUrl({ periodo: p.fin })
   /** Fin del período que se acaba de dar por terminado: ofrece seguir con el mes siguiente o terminar. */
   const [terminadoFin, setTerminadoFin] = useState<string | null>(null)
   const tipos = useLiveQuery(() => db.tiposTrabajo.where('lugarId').equals(lugar.id).sortBy('orden'), [lugar.id])
@@ -75,7 +90,7 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
     <>
       <p className="muted">{lugar.nombre}</p>
 
-      <SelectorMes lugar={lugar} periodo={periodo} hoy={hoy} cantidad={delMes.length} onCambiar={setPeriodo} />
+      <SelectorMes lugar={lugar} periodo={periodo} hoy={hoy} cantidad={delMes.length} onCambiar={irAlPeriodo} />
 
       {cerrado && (
         <Card>
@@ -97,9 +112,9 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
             periodo={periodo}
             hoy={hoy}
             porcentajeBp={porcentajeBp}
-            onPorcentaje={setPorcentajeBp}
+            onPorcentaje={(bp) => cambiarUrl({ porcentaje: String(bp) })}
             modo={modo}
-            onModo={setModo}
+            onModo={(m) => cambiarUrl({ modo: m })}
           />
         ))}
 
@@ -134,7 +149,7 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
         <div className="cierre__acciones">
           {/* El mes en curso no se puede cargar: ahí solo queda terminar. */}
           {periodoOfrecido(lugar, siguiente, hoy) && (
-            <Button onClick={() => setPeriodo(siguiente)}>{`Seguir con ${nombrePeriodo(siguiente)} ${siguiente.fin.slice(0, 4)}`}</Button>
+            <Button onClick={() => irAlPeriodo(siguiente)}>{`Seguir con ${nombrePeriodo(siguiente)} ${siguiente.fin.slice(0, 4)}`}</Button>
           )}
           <Button variante="secundario" onClick={() => navigate(`/lugares/${lugar.id}`)}>
             Terminar
