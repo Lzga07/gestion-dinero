@@ -24,9 +24,7 @@ import MoneyInput, { ERROR_MONTO } from '../components/MoneyInput'
 import SelectorFecha from '../components/SelectorFecha'
 import useVolver from '../components/useVolver'
 import { leerFechaRecordada, recordarFecha } from '../hooks/fechaRecordada'
-import { useHoy } from '../hooks/useHoy'
 import { pesosJuntos } from '../pesos'
-import AvisoNoEsHoy from './trabajo/AvisoNoEsHoy'
 
 const AVISO_EN_PAGO = 'Este trabajo ya está en un pago: cambiarlo modifica la conciliación de ese período'
 
@@ -134,7 +132,6 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
   })
   // Un trabajo nuevo arranca en la fecha del último guardado hace poco (carga de trabajos atrasados).
   const [fecha, setFecha] = useState(() => trabajo?.fecha ?? leerFechaRecordada() ?? hoy())
-  const hoyFecha = useHoy()
   const [nota, setNota] = useState(trabajo?.nota ?? '')
 
   // Arancel fijo
@@ -393,7 +390,6 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
           </Field>
 
           <SelectorFecha label="Fecha" value={fecha} onChange={setFecha} />
-          {!trabajo && <AvisoNoEsHoy fecha={fecha} hoy={hoyFecha} onHoy={() => setFecha(hoy())} />}
 
           {esPorcentaje ? (
             <>

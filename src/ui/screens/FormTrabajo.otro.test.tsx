@@ -291,12 +291,14 @@ function recordar(fecha: string, haceMs: number) {
 const MIN = 60_000
 
 describe('recordar la última fecha usada', () => {
-  test('dentro de los 30 minutos arranca en la fecha anterior y avisa que no es hoy', async () => {
+  test('dentro de los 30 minutos arranca en la fecha anterior, marcada como "Otro día…" y sin cartel aparte', async () => {
     const lugarId = await lugarConTipos()
     recordar(FECHA_PAPEL, 10 * MIN)
     renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
     expect(await fechaElegida()).toBe(FECHA_PAPEL)
-    expect(screen.getByText('No es hoy: 3 de mayo de 2026')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Otro día…' })).toBeChecked()
+    expect(screen.getByText('Domingo 3 de mayo')).toBeInTheDocument()
+    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
   })
 
   test('pasados los 30 minutos arranca en hoy y no avisa', async () => {
@@ -304,8 +306,7 @@ describe('recordar la última fecha usada', () => {
     recordar(FECHA_PAPEL, 31 * MIN)
     renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
     expect(await fechaElegida()).toBe(hoy())
-    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Hoy' })).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Hoy' })).toBeChecked()
   })
 
   test('sin storage (o con un valor roto) arranca en hoy', async () => {
@@ -336,23 +337,13 @@ describe('recordar la última fecha usada', () => {
     expect(await db.trabajos.count()).toBe(1)
   })
 
-  test('"Hoy" la corrige y el aviso desaparece', async () => {
+  test('"Hoy" la corrige de un toque', async () => {
     const lugarId = await lugarConTipos()
     recordar(FECHA_PAPEL, 1 * MIN)
     const { user } = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await screen.findByText('No es hoy: 3 de mayo de 2026')
-    await user.click(screen.getByRole('button', { name: 'Hoy' }))
+    expect(await fechaElegida()).toBe(FECHA_PAPEL)
+    await user.click(screen.getByRole('radio', { name: 'Hoy' }))
     expect(await fechaElegida()).toBe(hoy())
-    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
-  })
-
-  test('el aviso sigue a la fecha que se elige', async () => {
-    const lugarId = await lugarConTipos()
-    const { user } = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    expect(await fechaElegida()).toBe(hoy())
-    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
-    await elegirFecha(user, FECHA_PAPEL)
-    expect(screen.getByText('No es hoy: 3 de mayo de 2026')).toBeInTheDocument()
   })
 
   test('guardar con una fecha pasada la recuerda para el próximo formulario; guardar con hoy la olvida', async () => {
@@ -366,7 +357,7 @@ describe('recordar la última fecha usada', () => {
 
     const segundo = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
     expect(await fechaElegida()).toBe(FECHA_PAPEL)
-    await segundo.user.click(screen.getByRole('button', { name: 'Hoy' }))
+    await segundo.user.click(screen.getByRole('radio', { name: 'Hoy' }))
     await segundo.user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await segundo.user.click(screen.getByRole('button', { name: 'Guardar' }))
     await screen.findByRole('heading', { name: 'Origen' })
@@ -389,13 +380,12 @@ describe('recordar la última fecha usada', () => {
     unmount()
   })
 
-  test('editar un trabajo usa su fecha, no muestra el aviso y no toca lo recordado', async () => {
+  test('editar un trabajo usa su fecha y no toca lo recordado', async () => {
     const lugarId = await lugarConTipos()
     const trabajoId = await anotarTrabajo(lugarId, '2026-10-05')
     recordar(FECHA_PAPEL, 1 * MIN)
     const { user } = renderEn(`/trabajo/${trabajoId}`)
     expect(await fechaElegida()).toBe('2026-10-05')
-    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     await screen.findByRole('heading', { name: 'Origen' })
