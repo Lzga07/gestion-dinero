@@ -22,6 +22,7 @@ import Instalar from './screens/Instalar'
 import Lugares from './screens/Lugares'
 import Mas from './screens/Mas'
 import MeDeben from './screens/MeDeben'
+import MesesAnteriores from './screens/MesesAnteriores'
 import Movimientos from './screens/Movimientos'
 import PeriodoLugar from './screens/PeriodoLugar'
 import RegistrarPago from './screens/RegistrarPago'
@@ -55,6 +56,7 @@ export default function App() {
                   <Route path="/lugares/:id" element={<PeriodoLugar />} />
                   <Route path="/lugares/:id/config" element={<ConfigLugar />} />
                   <Route path="/lugares/:id/pago" element={<RegistrarPago />} />
+                  <Route path="/lugares/:id/anteriores" element={<MesesAnteriores />} />
                   <Route path="/trabajo/nuevo" element={<FormTrabajo />} />
                   <Route path="/trabajo/:id" element={<FormTrabajo />} />
                   <Route path="/estadisticas" element={<Estadisticas />} />
