@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { archivarLugar } from '../../data/lugares'
+import { marcarNoPagado } from '../../data/pagos'
 import { crearPin } from '../../data/pin'
-import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
+import { anotarTrabajo, lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import { compartirArchivo, type ResultadoCompartir } from '../../platform/compartir'
 import { leerTextoArchivo } from '../../platform/archivos'
 import Mas from './Mas'
@@ -69,6 +70,26 @@ describe('lista', () => {
     const boton = await screen.findByRole('button', { name: /Lugares archivados/ })
     expect(boton).toBeDisabled()
     expect(boton).toHaveAccessibleDescription('Ninguno')
+  })
+})
+
+describe('Me deben', () => {
+  test('sin deudas dice "Nada" y lleva a la pantalla', async () => {
+    renderMas()
+    const fila = await screen.findByRole('link', { name: /Me deben/ })
+    expect(fila).toHaveAttribute('href', '/mas/me-deben')
+    expect(fila).toHaveAccessibleDescription('Nada')
+  })
+
+  test('con deudas muestra el total de todas, también las de lugares archivados', async () => {
+    const centro = await lugarFijo('ULTIMO', 'Clínica Centro')
+    const viejo = await lugarFijo('ULTIMO', 'Clínica Vieja')
+    await marcarNoPagado(await anotarTrabajo(centro, '2026-06-10', 5000000))
+    await marcarNoPagado(await anotarTrabajo(viejo, '2026-09-10', 2500000))
+    await archivarLugar(viejo, true)
+    renderMas()
+
+    expect(await screen.findByRole('link', { name: /Me deben/ })).toHaveTextContent('$ 75.000')
   })
 })
 

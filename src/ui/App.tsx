@@ -21,6 +21,7 @@ import Inicio from './screens/Inicio'
 import Instalar from './screens/Instalar'
 import Lugares from './screens/Lugares'
 import Mas from './screens/Mas'
+import MeDeben from './screens/MeDeben'
 import Movimientos from './screens/Movimientos'
 import PeriodoLugar from './screens/PeriodoLugar'
 import RegistrarPago from './screens/RegistrarPago'
@@ -60,6 +61,7 @@ export default function App() {
                   <Route path="/mas" element={<Mas />} />
                   <Route path="/mas/categorias" element={<Categorias />} />
                   <Route path="/mas/copia" element={<Copia />} />
+                  <Route path="/mas/me-deben" element={<MeDeben />} />
                   <Route path="/mas/instalar" element={<Instalar />} />
                   <Route path="/mas/pin" element={<ConfigPin />} />
                 </Routes>

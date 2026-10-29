@@ -2043,3 +2043,60 @@ button.lugar-row {
   opacity: 0.5;
   cursor: default;
 }
+
+/* Me deben: un bloque por lugar, con sus períodos adeudados */
+.me-deben {
+  margin-bottom: 12px;
+}
+
+.me-deben__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+}
+
+.me-deben__lugar {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.me-deben__total {
+  margin: 0;
+  font-weight: 700;
+  color: var(--neg);
+}
+
+.me-deben__periodo {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.me-deben__periodo-nombre {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.me-deben__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.me-deben__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.me-deben__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
