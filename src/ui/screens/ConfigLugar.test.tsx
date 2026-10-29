@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { db } from '../../data/db'
 import { ErrorDatos } from '../../data/errores'
@@ -10,6 +10,10 @@ import { anotarTrabajo, lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import ConfigLugar from './ConfigLugar'
 import Lugares from './Lugares'
 
+function Anteriores() {
+  return <h1>{`Anteriores de ${useParams().id}`}</h1>
+}
+
 function renderEn(ruta: string) {
   const user = userEvent.setup()
   render(
@@ -18,6 +22,7 @@ function renderEn(ruta: string) {
         <Route path="/lugares" element={<Lugares />} />
         <Route path="/lugares/nuevo" element={<ConfigLugar />} />
         <Route path="/lugares/:id/config" element={<ConfigLugar />} />
+        <Route path="/lugares/:id/anteriores" element={<Anteriores />} />
       </Routes>
     </MemoryRouter>,
   )
@@ -41,6 +46,7 @@ describe('nuevo lugar', () => {
     await user.clear(hasta)
     await user.type(hasta, '31')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(await screen.findByRole('button', { name: 'Ahora no' }))
 
     expect(await screen.findByRole('heading', { name: 'Lugares' })).toBeInTheDocument()
     const lugares = await db.lugares.toArray()
@@ -62,6 +68,7 @@ describe('nuevo lugar', () => {
     await user.type(screen.getByLabelText('Trabajo'), 'Limpieza')
     await user.type(screen.getByLabelText('Precio'), '25.000')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(await screen.findByRole('button', { name: 'Ahora no' }))
 
     expect(await screen.findByRole('heading', { name: 'Lugares' })).toBeInTheDocument()
     const [lugar] = await db.lugares.toArray()
@@ -121,6 +128,34 @@ describe('nuevo lugar', () => {
     expect(await screen.findByText('Porcentaje inválido (ej: 40 o 37,5)')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     expect(await db.lugares.count()).toBe(0)
+  })
+
+  test('al guardar un lugar nuevo pregunta si ya trabajaba ahí y ofrece cargar los meses anteriores', async () => {
+    const user = renderEn('/lugares/nuevo')
+    await user.type(screen.getByLabelText('Nombre'), 'Consultorio Sur')
+    await user.click(screen.getByRole('radio', { name: 'Porcentaje' }))
+    await user.type(screen.getByLabelText('Porcentaje que te corresponde'), '40')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    const dialogo = await screen.findByRole('dialog', { name: '¿Ya trabajabas en Consultorio Sur?' })
+    expect(dialogo).toHaveTextContent('Cargá los meses anteriores para tener todo en la app.')
+    const [lugar] = await db.lugares.toArray()
+    await user.click(within(dialogo).getByRole('button', { name: 'Cargar meses anteriores' }))
+
+    expect(await screen.findByRole('heading', { name: `Anteriores de ${lugar.id}` })).toBeInTheDocument()
+  })
+
+  test('"Ahora no" sigue a Lugares, con el lugar ya guardado', async () => {
+    const user = renderEn('/lugares/nuevo')
+    await user.type(screen.getByLabelText('Nombre'), 'Consultorio Sur')
+    await user.click(screen.getByRole('radio', { name: 'Porcentaje' }))
+    await user.type(screen.getByLabelText('Porcentaje que te corresponde'), '40')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Ahora no' }))
+
+    expect(await screen.findByRole('heading', { name: 'Lugares' })).toBeInTheDocument()
+    expect(await db.lugares.count()).toBe(1)
   })
 
   test('el día de cierre ofrece 1 a 31 y "Último día del mes"', async () => {
@@ -243,6 +278,7 @@ describe('lugar existente', () => {
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 
     await screen.findByRole('heading', { name: 'Lugares' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect((await db.tiposTrabajo.get(tipoId))?.precio).toBe(3000000)
     expect((await db.trabajos.get(trabajoId))?.monto).toBe(2500000)
   })
@@ -293,6 +329,7 @@ describe('lugar existente', () => {
     espia.mockRestore()
 
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(await screen.findByRole('button', { name: 'Ahora no' }))
     expect(await screen.findByRole('heading', { name: 'Lugares' })).toBeInTheDocument()
     expect(await db.lugares.count()).toBe(1)
     expect(await db.tiposTrabajo.count()).toBe(1)

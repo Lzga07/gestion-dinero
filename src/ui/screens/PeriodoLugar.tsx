@@ -233,6 +233,13 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
         </>
       )}
 
+      {/* Un lugar archivado no se ofrece: primero se desarchiva. */}
+      {!lugar.archivado && (
+        <Link className="btn btn--secundario btn--block periodo__anteriores" to={`/lugares/${lugar.id}/anteriores`}>
+          Cargar meses anteriores
+        </Link>
+      )}
+
       <div className="acciones-fijas">
         <Button variante="secundario" disabled={delPeriodo.length === 0} onClick={() => setDialogo({ tipo: 'compartir' })}>
           Compartir listado

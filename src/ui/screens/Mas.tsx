@@ -29,7 +29,7 @@ function useAvisoDeNavegacion(): string | null {
   return aviso
 }
 
-/** Más: copia de seguridad, lo que te deben, categorías, PIN, lugares archivados, recordatorios del calendario e instalación. */
+/** Más: copia de seguridad, lo que te deben, meses anteriores, categorías, PIN, lugares archivados, recordatorios del calendario e instalación. */
 export default function Mas() {
   const hoy = useHoy()
   const lugares = useLiveQuery(() => db.lugares.toArray(), [])
@@ -61,6 +61,9 @@ export default function Mas() {
         </li>
         <li>
           <FilaMas nombre="Me deben" detalle={deuda > 0 ? pesosJuntos(deuda) : 'Nada'} to="/mas/me-deben" />
+        </li>
+        <li>
+          <FilaMas nombre="Cargar meses anteriores" detalle="Los trabajos de meses que ya pasaron" to="/mas/anteriores" />
         </li>
         <li>
           <FilaMas nombre="Categorías" detalle="Gastos e ingresos" to="/mas/categorias" />

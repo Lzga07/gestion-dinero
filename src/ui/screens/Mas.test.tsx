@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { archivarLugar } from '../../data/lugares'
 import { marcarNoPagado } from '../../data/pagos'
@@ -8,6 +8,7 @@ import { crearPin } from '../../data/pin'
 import { anotarTrabajo, lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import { compartirArchivo, type ResultadoCompartir } from '../../platform/compartir'
 import { leerTextoArchivo } from '../../platform/archivos'
+import ElegirLugar from './anteriores/ElegirLugar'
 import Mas from './Mas'
 
 vi.mock('../../platform/compartir', () => ({ compartirArchivo: vi.fn() }))
@@ -90,6 +91,72 @@ describe('Me deben', () => {
     renderMas()
 
     expect(await screen.findByRole('link', { name: /Me deben/ })).toHaveTextContent('$ 75.000')
+  })
+})
+
+describe('Cargar meses anteriores', () => {
+  test('la fila lleva a elegir el lugar', async () => {
+    renderMas()
+    const fila = await screen.findByRole('link', { name: /Cargar meses anteriores/ })
+    expect(fila).toHaveAttribute('href', '/mas/anteriores')
+  })
+})
+
+/** Muestra dónde terminó la navegación. */
+function Ubicacion() {
+  const { pathname } = useLocation()
+  return <p>{`Ubicación: ${pathname}`}</p>
+}
+
+describe('elegir lugar para cargar meses anteriores', () => {
+  function renderElegir() {
+    render(
+      <MemoryRouter initialEntries={['/mas/anteriores']}>
+        <Routes>
+          <Route path="/mas/anteriores" element={<ElegirLugar />} />
+          <Route path="*" element={<Ubicacion />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  test('con un solo lugar activo va directo a su pantalla', async () => {
+    const id = await lugarFijo('ULTIMO', 'Clínica Centro')
+    renderElegir()
+    expect(await screen.findByText(`Ubicación: /lugares/${id}/anteriores`)).toBeInTheDocument()
+  })
+
+  test('con varios lugares activos los lista para elegir, sin los archivados', async () => {
+    const centro = await lugarFijo('ULTIMO', 'Clínica Centro')
+    const sur = await lugarFijo('ULTIMO', 'Consultorio Sur')
+    const viejo = await lugarFijo('ULTIMO', 'Clínica Vieja')
+    await archivarLugar(viejo, true)
+    renderElegir()
+
+    const enlaces = await screen.findAllByRole('link', { name: /Clínica|Consultorio/ })
+    expect(enlaces.map((e) => [e.textContent, e.getAttribute('href')])).toEqual([
+      ['Clínica Centro', `/lugares/${centro}/anteriores`],
+      ['Consultorio Sur', `/lugares/${sur}/anteriores`],
+    ])
+  })
+
+  test('un lugar activo y otro archivado va directo al activo', async () => {
+    const centro = await lugarFijo('ULTIMO', 'Clínica Centro')
+    const viejo = await lugarFijo('ULTIMO', 'Clínica Vieja')
+    await archivarLugar(viejo, true)
+    renderElegir()
+    expect(await screen.findByText(`Ubicación: /lugares/${centro}/anteriores`)).toBeInTheDocument()
+  })
+
+  test.each([
+    ['sin lugares', false],
+    ['con todos los lugares archivados', true],
+  ])('%s pide agregar uno primero', async (_, conArchivado) => {
+    if (conArchivado) await archivarLugar(await lugarFijo('ULTIMO', 'Clínica Vieja'), true)
+    renderElegir()
+
+    expect(await screen.findByText('Primero agregá un lugar donde trabajás')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '+ Agregar lugar' })).toHaveAttribute('href', '/lugares/nuevo')
   })
 })
 

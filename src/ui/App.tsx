@@ -15,6 +15,7 @@ import Tapa from './screens/bloqueo/Tapa'
 import Copia from './screens/Copia'
 import ConfigLugar from './screens/ConfigLugar'
 import Estadisticas from './screens/Estadisticas'
+import ElegirLugar from './screens/anteriores/ElegirLugar'
 import FormMovimiento from './screens/FormMovimiento'
 import FormTrabajo from './screens/FormTrabajo'
 import Inicio from './screens/Inicio'
@@ -64,6 +65,7 @@ export default function App() {
                   <Route path="/mas/categorias" element={<Categorias />} />
                   <Route path="/mas/copia" element={<Copia />} />
                   <Route path="/mas/me-deben" element={<MeDeben />} />
+                  <Route path="/mas/anteriores" element={<ElegirLugar />} />
                   <Route path="/mas/instalar" element={<Instalar />} />
                   <Route path="/mas/pin" element={<ConfigPin />} />
                 </Routes>

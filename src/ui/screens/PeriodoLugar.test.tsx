@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { db } from '../../data/db'
 import { marcarNoPagado, registrarPago } from '../../data/pagos'
 import * as datosPagos from '../../data/pagos'
+import { archivarLugar } from '../../data/lugares'
 import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import ConfigLugar from './ConfigLugar'
 import PeriodoLugar from './PeriodoLugar'
@@ -511,5 +512,26 @@ describe('deudas del lugar', () => {
 
     await screen.findByRole('heading', { name: 'Clínica Centro' })
     expect(screen.queryByText(/Te deben/)).not.toBeInTheDocument()
+  })
+})
+
+describe('meses anteriores', () => {
+  test('ofrece "Cargar meses anteriores", que lleva a la pantalla del lugar', async () => {
+    const lugarId = await lugarFijo()
+    renderEn(`/lugares/${lugarId}`)
+
+    expect(await screen.findByRole('link', { name: 'Cargar meses anteriores' })).toHaveAttribute(
+      'href',
+      `/lugares/${lugarId}/anteriores`,
+    )
+  })
+
+  test('un lugar archivado no lo ofrece', async () => {
+    const lugarId = await lugarFijo()
+    await archivarLugar(lugarId, true)
+    renderEn(`/lugares/${lugarId}`)
+
+    await screen.findByRole('heading', { name: 'Clínica Centro' })
+    expect(screen.queryByRole('link', { name: 'Cargar meses anteriores' })).not.toBeInTheDocument()
   })
 })
