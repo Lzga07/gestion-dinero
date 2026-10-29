@@ -5,10 +5,21 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { db } from '../../data/db'
 import { marcarNoPagado, registrarPago } from '../../data/pagos'
 import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
+import { armarPdfListado } from '../../pdf/listado'
 import MeDeben from './MeDeben'
 import { anotar, septiembre } from './periodo/test-fixtures'
 
+vi.mock('../../pdf/listado', async (original) => ({
+  ...(await original<typeof import('../../pdf/listado')>()),
+  armarPdfListado: vi.fn(),
+}))
+vi.mock('../../platform/compartir', () => ({ compartirArchivo: vi.fn() }))
+
+const armar = vi.mocked(armarPdfListado)
+
 beforeEach(async () => {
+  armar.mockReset()
+  armar.mockResolvedValue(new Blob(['%PDF'], { type: 'application/pdf' }))
   // Hoy es 27 de octubre de 2026; solo se simula la fecha, no los timers.
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date(2026, 9, 27, 12))
@@ -114,5 +125,53 @@ describe('MeDeben', () => {
     const dialogo = screen.getByRole('dialog', { name: 'Compartir reclamo' })
     expect(within(dialogo).getByText('Se arma un PDF con lo que te deben en Consultorio Sur.')).toBeInTheDocument()
     await within(dialogo).findByRole('button', { name: 'Compartir' })
+  })
+
+  describe('"Compartir reclamo de este mes"', () => {
+    /** Clínica Centro: junio con un NO_PAGADO (Conducto) y septiembre solo con 13.000 de diferencia en plata. */
+    async function unMesConTrabajoYOtroConPlata() {
+      const centro = await lugarFijo('ULTIMO', 'Clínica Centro')
+      const junio = await anotar(centro, '2026-06-10', 'Conducto', 60000)
+      await marcarNoPagado(junio)
+      const t = await septiembre(centro)
+      await registrarPago({
+        lugarId: centro, periodoFin: '2026-09-30', fecha: '2026-10-25', monto: 12500000, tipo: 'FINAL', nota: '',
+        tildados: [t.arreglo, t.corona, t.limpieza, t.extraccion], destildados: [],
+      })
+    }
+
+    test('cada mes comparte un reclamo con solo lo de ese mes', async () => {
+      await unMesConTrabajoYOtroConPlata()
+      const user = renderMeDeben()
+
+      const centro = await screen.findByRole('region', { name: 'Clínica Centro' })
+      await user.click(within(within(centro).getByRole('group', { name: '1 – 30 jun 2026' })).getByRole('button', { name: 'Compartir reclamo de este mes' }))
+      await within(screen.getByRole('dialog', { name: 'Compartir reclamo' })).findByRole('button', { name: 'Compartir' })
+      expect(armar).toHaveBeenCalledTimes(1)
+      const junio = armar.mock.calls[0][0]
+      expect(junio).toMatchObject({ tipo: 'RECLAMO', periodo: null, resumen: null, hoy: '2026-10-27' })
+      expect(junio.trabajos.map((tr) => tr.descripcion)).toEqual(['Conducto'])
+      expect(junio.deudasPlata).toEqual([])
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
+
+      await user.click(within(within(centro).getByRole('group', { name: '1 – 30 sep 2026' })).getByRole('button', { name: 'Compartir reclamo de este mes' }))
+      await within(screen.getByRole('dialog', { name: 'Compartir reclamo' })).findByRole('button', { name: 'Compartir' })
+      const septiembre = armar.mock.calls[1][0]
+      expect(septiembre.trabajos).toEqual([])
+      expect(septiembre.deudasPlata).toEqual([
+        { periodo: { inicio: '2026-09-01', fin: '2026-09-30' }, monto: 1300000, fechaPago: '2026-10-25' },
+      ])
+    })
+
+    test('el reclamo del lugar sigue incluyendo todos los meses', async () => {
+      await unMesConTrabajoYOtroConPlata()
+      const user = renderMeDeben()
+
+      await user.click(within(await screen.findByRole('region', { name: 'Clínica Centro' })).getByRole('button', { name: 'Compartir reclamo' }))
+      await within(screen.getByRole('dialog', { name: 'Compartir reclamo' })).findByRole('button', { name: 'Compartir' })
+      const datos = armar.mock.calls[0][0]
+      expect(datos.trabajos.map((tr) => tr.descripcion)).toEqual(['Conducto'])
+      expect(datos.deudasPlata).toHaveLength(1)
+    })
   })
 })

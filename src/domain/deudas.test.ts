@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { avisoDeuda, deudasPorLugar, esDeudaVieja, soloRecientes, soloViejas } from './deudas';
+import { avisoDeuda, deudasPorLugar, esDeudaVieja, soloPeriodo, soloRecientes, soloViejas } from './deudas';
 import { INICIO_DE_LOS_TIEMPOS } from './periodos';
 import type { EstadoPago, Lugar, Pago, TipoPago, Trabajo } from './types';
 
@@ -97,6 +97,22 @@ describe('deudasPorLugar', () => {
     expect(soloViejas(viejo)).not.toBeNull();
     const [reciente] = deudasPorLugar({ ...args, trabajos: [a, b], pagos: [final] });
     expect(soloViejas(reciente)).toBeNull();
+  });
+});
+
+describe('soloPeriodo', () => {
+  test('deja un único período con su monto, sin tocar los demás datos del lugar', () => {
+    const agosto = t('c', '2026-08-10', 4000000, 'NO_PAGADO');
+    const a = t('a', '2026-10-03', 10000000, 'PAGADO', 'p1');
+    const [d] = deudasPorLugar({
+      hoy: '2026-12-15', lugares: [lugar('L1', 'Clínica')], trabajos: [agosto, a], pagos: [pago('p1', '2026-10-31', 8000000, 'FINAL')],
+    });
+    const octubre = soloPeriodo(d, d.periodos[1]);
+    expect(octubre.lugar).toBe(d.lugar);
+    expect(octubre.periodos).toEqual([d.periodos[1]]);
+    expect(octubre.monto).toBe(2000000);
+    expect(avisoDeuda(octubre)).toMatchObject({ noPagados: [], deudasPlata: [{ periodo: d.periodos[1].periodo, monto: 2000000 }] });
+    expect(soloPeriodo(d, d.periodos[0]).monto).toBe(4000000);
   });
 });
 

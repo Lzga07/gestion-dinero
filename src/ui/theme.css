@@ -2110,6 +2110,10 @@ button.lugar-row {
   padding: 3px 0;
 }
 
+.me-deben__reclamo-mes {
+  margin-top: 8px;
+}
+
 .me-deben__acciones {
   display: flex;
   flex-wrap: wrap;

@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { db } from '../../data/db'
 import { cobrarDeuda } from '../../data/pagos'
-import { avisoDeuda, deudasPorLugar, type DeudaPeriodo, type DeudasLugar } from '../../domain/deudas'
+import { avisoDeuda, deudasPorLugar, soloPeriodo, type DeudaPeriodo, type DeudasLugar } from '../../domain/deudas'
 import type { FechaISO } from '../../domain/dates'
 import { nombrePeriodo } from '../../domain/periodos'
 import type { Lugar, Pago, Trabajo } from '../../domain/types'
@@ -70,7 +70,7 @@ function Deudas({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
           key={d.lugar.id}
           deuda={d}
           onCobrar={() => setCobrando(d)}
-          onReclamo={() => setReclamo(datosReclamo(d.lugar, avisoDeuda(d), pagos, hoy))}
+          onReclamo={(deuda) => setReclamo(datosReclamo(d.lugar, avisoDeuda(deuda), pagos, hoy))}
         />
       ))}
 
@@ -94,7 +94,8 @@ function Deudas({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
 interface BloqueLugarProps {
   deuda: DeudasLugar
   onCobrar: () => void
-  onReclamo: () => void
+  /** El reclamo de la deuda que se le pasa: la de todo el lugar o la de uno de sus períodos. */
+  onReclamo: (deuda: DeudasLugar) => void
 }
 
 function BloqueLugar({ deuda, onCobrar, onReclamo }: BloqueLugarProps) {
@@ -105,13 +106,13 @@ function BloqueLugar({ deuda, onCobrar, onReclamo }: BloqueLugarProps) {
         <p className="me-deben__total">{`Te deben ${pesosJuntos(deuda.monto)}`}</p>
       </header>
       {deuda.periodos.map((p) => (
-        <PeriodoDeuda key={p.periodo.fin} p={p} />
+        <PeriodoDeuda key={p.periodo.fin} p={p} onReclamo={() => onReclamo(soloPeriodo(deuda, p))} />
       ))}
       <div className="me-deben__acciones">
         <Button variante="secundario" onClick={onCobrar}>
           Ya me lo pagaron
         </Button>
-        <Button variante="secundario" onClick={onReclamo}>
+        <Button variante="secundario" onClick={() => onReclamo(deuda)}>
           Compartir reclamo
         </Button>
       </div>
@@ -119,10 +120,11 @@ function BloqueLugar({ deuda, onCobrar, onReclamo }: BloqueLugarProps) {
   )
 }
 
-function PeriodoDeuda({ p }: { p: DeudaPeriodo }) {
+function PeriodoDeuda({ p, onReclamo }: { p: DeudaPeriodo; onReclamo: () => void }) {
+  const idNombre = useId()
   return (
-    <div className="me-deben__periodo">
-      <h3 className="me-deben__periodo-nombre">{`${nombrePeriodo(p.periodo)} ${p.periodo.fin.slice(0, 4)}`}</h3>
+    <div className="me-deben__periodo" role="group" aria-labelledby={idNombre}>
+      <h3 id={idNombre} className="me-deben__periodo-nombre">{`${nombrePeriodo(p.periodo)} ${p.periodo.fin.slice(0, 4)}`}</h3>
       <ul className="me-deben__items">
         {p.noPagados.map((tr) => (
           <li key={tr.id} className="me-deben__item">
@@ -136,6 +138,9 @@ function PeriodoDeuda({ p }: { p: DeudaPeriodo }) {
           </li>
         )}
       </ul>
+      <Button variante="secundario" className="me-deben__reclamo-mes" onClick={onReclamo}>
+        Compartir reclamo de este mes
+      </Button>
     </div>
   )
 }

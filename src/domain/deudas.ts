@@ -72,6 +72,9 @@ export const soloRecientes = (d: DeudasLugar): DeudasLugar | null => filtrar(d, 
 /** Solo los períodos de deuda vieja, o null si no queda ninguno. */
 export const soloViejas = (d: DeudasLugar): DeudasLugar | null => filtrar(d, true);
 
+/** La deuda de un lugar restringida a uno solo de sus períodos (el reclamo "de este mes"). */
+export const soloPeriodo = (d: DeudasLugar, p: DeudaPeriodo): DeudasLugar => ({ ...d, periodos: [p], monto: p.monto });
+
 /** La deuda de un lugar con la forma de aviso (la que usan la tarjeta, "Ya me lo pagaron" y el reclamo). */
 export function avisoDeuda(d: DeudasLugar): AvisoDeuda {
   const noPagados = d.periodos.flatMap(p => p.noPagados).sort((x, y) => (x.fecha < y.fecha ? -1 : x.fecha > y.fecha ? 1 : 0));
