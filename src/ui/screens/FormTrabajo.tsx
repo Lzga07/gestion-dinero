@@ -165,6 +165,8 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
 
   const lugar = lugares.find((l) => l.id === lugarId) as Lugar
   const esPorcentaje = lugar.formaCobro === 'PORCENTAJE'
+  /** Trabajo de un lugar por porcentaje cargado solo con "lo que me tocó": sin precio del cliente ni %. Si cambia de lugar, deja de serlo. */
+  const esDirecto = esPorcentaje && !!trabajo && trabajo.lugarId === lugarId && trabajo.montoCliente === null
   /** El trabajo editado cambia a otro lugar estando pagado o no pagado (vuelve a pendiente al guardar). */
   const mudanza = !!trabajo && trabajo.lugarId !== lugarId && trabajo.estado !== 'PENDIENTE'
   const tiposLugar = tipos
@@ -187,7 +189,9 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
 
   // ---- Cálculo y validación ----
   let entrada: EntradaTrabajo
-  if (esPorcentaje) {
+  if (esDirecto) {
+    entrada = { forma: 'MONTO_DIRECTO', descripcion, monto: otroMonto } // "Lo que te tocó" usa el estado de otroMonto
+  } else if (esPorcentaje) {
     entrada = { forma: 'PORCENTAJE', descripcion, montoCliente, descuento, porcentajeBp: bp }
   } else if (seleccion === OTRO) {
     entrada = { forma: 'ARANCEL_FIJO', tipo: null, otroNombre, otroMonto }
@@ -196,7 +200,11 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
   }
   const res: ResultadoTrabajo = calcularTrabajo(entrada)
   const errores = erroresDe(entrada)
-  const hayInvalido = esPorcentaje ? clienteInvalido || descuentoInvalido : seleccion === OTRO && otroInvalido
+  const hayInvalido = esDirecto
+    ? otroInvalido
+    : esPorcentaje
+      ? clienteInvalido || descuentoInvalido
+      : seleccion === OTRO && otroInvalido
   const hayErrores = errores.size > 0 || hayInvalido
   const ver = intentado > 0
 
@@ -298,7 +306,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
     guardandoRef.current = true
     setGuardando(true)
     setConfirmacion('')
-    const conDescuento = esPorcentaje && descuento !== null && descuento > 0
+    const conDescuento = esPorcentaje && !esDirecto && descuento !== null && descuento > 0
     try {
       const { id, periodoYaPagado } = await guardarTrabajo({
         id: trabajo?.id ?? idGuardado.current ?? undefined,
@@ -307,10 +315,10 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
         descripcion: mismoTipo && trabajo ? trabajo.descripcion : res.descripcion,
         tipoTrabajoId: tipoElegido && !esPorcentaje ? tipoElegido.id : null,
         precioLista: tipoElegido && !esPorcentaje ? tipoElegido.precio : null,
-        montoCliente: esPorcentaje ? montoCliente : null,
+        montoCliente: esPorcentaje && !esDirecto ? montoCliente : null,
         descuento: conDescuento ? descuento : null,
         descuentoMotivo: conDescuento && motivo.trim() !== '' ? motivo.trim() : null,
-        porcentajeBp: esPorcentaje ? bp : null,
+        porcentajeBp: esPorcentaje && !esDirecto ? bp : null,
         monto: res.monto,
         nota: nota.trim(),
       })
@@ -405,37 +413,50 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
                   />
                 )}
               </Field>
-              <MoneyInput
-                key={`cliente-${otroN}`}
-                label="Lo que pagó el cliente"
-                value={montoCliente}
-                onChange={setMontoCliente}
-                onInvalidChange={setClienteInvalido}
-                error={errMonto(clienteInvalido)}
-              />
-              <MoneyInput
-                key={`descuento-${otroN}`}
-                label="Descuento antes del % (opcional)"
-                hint="Se resta de lo que pagó el cliente antes de aplicar el porcentaje."
-                value={descuento}
-                onChange={setDescuento}
-                onInvalidChange={setDescuentoInvalido}
-                error={errDescuento}
-              />
-              {(descuento !== null || descuentoInvalido) && (
-                <Field label="Motivo del descuento (opcional)">
-                  {(control) => (
-                    <input
-                      {...control}
-                      className="input"
-                      type="text"
-                      autoComplete="off"
-                      placeholder="Ej: laboratorio"
-                      value={motivo}
-                      onChange={(e) => setMotivo(e.target.value)}
-                    />
+              {esDirecto ? (
+                <MoneyInput
+                  key={`directo-${otroN}`}
+                  label="Lo que te tocó"
+                  value={otroMonto}
+                  onChange={setOtroMonto}
+                  onInvalidChange={setOtroInvalido}
+                  error={errMonto(otroInvalido)}
+                />
+              ) : (
+                <>
+                  <MoneyInput
+                    key={`cliente-${otroN}`}
+                    label="Lo que pagó el cliente"
+                    value={montoCliente}
+                    onChange={setMontoCliente}
+                    onInvalidChange={setClienteInvalido}
+                    error={errMonto(clienteInvalido)}
+                  />
+                  <MoneyInput
+                    key={`descuento-${otroN}`}
+                    label="Descuento antes del % (opcional)"
+                    hint="Se resta de lo que pagó el cliente antes de aplicar el porcentaje."
+                    value={descuento}
+                    onChange={setDescuento}
+                    onInvalidChange={setDescuentoInvalido}
+                    error={errDescuento}
+                  />
+                  {(descuento !== null || descuentoInvalido) && (
+                    <Field label="Motivo del descuento (opcional)">
+                      {(control) => (
+                        <input
+                          {...control}
+                          className="input"
+                          type="text"
+                          autoComplete="off"
+                          placeholder="Ej: laboratorio"
+                          value={motivo}
+                          onChange={(e) => setMotivo(e.target.value)}
+                        />
+                      )}
+                    </Field>
                   )}
-                </Field>
+                </>
               )}
             </>
           ) : (
