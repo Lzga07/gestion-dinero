@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import type { Aviso } from '../../domain/avisos'
+import type { Aviso, AvisoDeuda } from '../../domain/avisos'
 import type { FechaISO } from '../../domain/dates'
 import { nombrePeriodo, periodoQueContiene } from '../../domain/periodos'
 import type { Lugar } from '../../domain/types'
@@ -10,7 +10,7 @@ import { pesosJuntos } from '../pesos'
 
 type AvisoPeriodo = Extract<Aviso, { tipo: 'PAGO_ATRASADO' | 'SIN_CONCILIAR' }>
 export type AvisoSinConciliar = Extract<Aviso, { tipo: 'SIN_CONCILIAR' }>
-export type AvisoDeuda = Extract<Aviso, { tipo: 'DEUDA' }>
+export type { AvisoDeuda }
 
 /** Fin del período más antiguo con deuda (un trabajo sin pagar o una diferencia en plata). */
 function periodoMasAntiguo(lugar: Lugar, aviso: AvisoDeuda): FechaISO | null {
