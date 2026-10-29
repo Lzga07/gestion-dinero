@@ -10,6 +10,7 @@ import ConfigLugar from './ConfigLugar'
 import PeriodoLugar from './PeriodoLugar'
 import RegistrarPago from './RegistrarPago'
 import { anotar, septiembre } from './periodo/test-fixtures'
+import { fechaElegida } from '../test-fecha'
 
 function renderEn(ruta: string) {
   const user = userEvent.setup()
@@ -271,7 +272,7 @@ describe('período del lugar', () => {
     await user.click(await screen.findByRole('button', { name: 'Ya me lo pagaron' }))
     const dialogo = await screen.findByRole('dialog')
     // por defecto: hoy y el monto del trabajo
-    expect(within(dialogo).getByLabelText('Fecha del pago')).toHaveValue('2026-10-27')
+    expect(await fechaElegida('Fecha del pago', dialogo)).toBe('2026-10-27')
     const monto = within(dialogo).getByLabelText('Monto')
     expect(monto).toHaveValue('$ 45.000')
 

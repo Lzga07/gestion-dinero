@@ -6,7 +6,7 @@ import type { Trabajo } from '../../domain/types'
 import { etiquetaTrabajo } from '../screens/periodo/utils'
 import { pesosJuntos } from '../pesos'
 import ConfirmDialog from './ConfirmDialog'
-import Field from './Field'
+import SelectorFecha from './SelectorFecha'
 
 interface DialogoCobrarDeudaProps {
   /** Trabajos NO_PAGADO del lugar, de todos los períodos. */
@@ -50,7 +50,6 @@ export default function DialogoCobrarDeuda({ noPagados, diferencias, onGuardar, 
   const [error, setError] = useState<string | null>(null)
 
   const total = opciones.filter((o) => elegidos.has(o.clave)).reduce((s, o) => s + o.monto, 0)
-  const errFecha = intentado && fecha === '' ? 'Elegí la fecha' : null
   const errNada = intentado && elegidos.size === 0 ? 'Elegí lo que te pagaron' : null
 
   function cambiar(clave: string, tildado: boolean) {
@@ -65,7 +64,7 @@ export default function DialogoCobrarDeuda({ noPagados, diferencias, onGuardar, 
   async function guardar() {
     if (guardandoRef.current) return
     setError(null)
-    if (fecha === '' || elegidos.size === 0) {
+    if (elegidos.size === 0) {
       setIntentado(true)
       return
     }
@@ -119,9 +118,7 @@ export default function DialogoCobrarDeuda({ noPagados, diferencias, onGuardar, 
           )}
         </fieldset>
         <p className="cobro-deuda__total">{`Total: ${pesosJuntos(total)}`}</p>
-        <Field label="Fecha del pago" error={errFecha}>
-          {(control) => <input {...control} className="input" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />}
-        </Field>
+        <SelectorFecha label="Fecha del pago" value={fecha} onChange={setFecha} />
         {error && (
           <p className="field__error" role="alert">
             {error}

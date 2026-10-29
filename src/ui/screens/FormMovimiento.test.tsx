@@ -8,6 +8,7 @@ import * as datosMovimientos from '../../data/movimientos'
 import { guardarMovimiento } from '../../data/movimientos'
 import { reiniciarDb } from '../../data/test-helpers'
 import FormMovimiento from './FormMovimiento'
+import { fechaElegida } from '../test-fecha'
 
 function renderEn(ruta: string) {
   const user = userEvent.setup()
@@ -95,15 +96,13 @@ describe('nuevo ingreso', () => {
 })
 
 describe('validación', () => {
-  test('monto, fecha y categoría son obligatorios: muestra los errores y no guarda', async () => {
+  test('monto y categoría son obligatorios: muestra los errores y no guarda', async () => {
     await categorias()
     const user = renderEn('/movimiento/nuevo?tipo=GASTO')
     await screen.findByRole('heading', { name: 'Nuevo gasto' })
-    await user.clear(screen.getByLabelText('Fecha'))
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 
     expect(screen.getByText('Ingresá un monto mayor a 0')).toBeInTheDocument()
-    expect(screen.getByText('Elegí la fecha')).toBeInTheDocument()
     expect(screen.getByText('Elegí una categoría')).toBeInTheDocument()
     expect(await db.movimientos.count()).toBe(0)
     expect(screen.queryByRole('heading', { name: 'Origen' })).not.toBeInTheDocument()
@@ -170,7 +169,7 @@ describe('editar y borrar', () => {
 
     expect(await screen.findByRole('heading', { name: 'Editar gasto' })).toBeInTheDocument()
     expect(screen.getByLabelText('Monto')).toHaveValue('$ 22.000')
-    expect(screen.getByLabelText('Fecha')).toHaveValue('2026-10-20')
+    expect(await fechaElegida()).toBe('2026-10-20')
     expect(screen.getByRole('radio', { name: 'Materiales' })).toBeChecked()
 
     await user.clear(screen.getByLabelText('Monto'))

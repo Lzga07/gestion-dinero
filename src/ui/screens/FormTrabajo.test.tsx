@@ -11,6 +11,10 @@ import * as datosTrabajos from '../../data/trabajos'
 import { anotarTrabajo, lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import { hoy } from '../../domain/dates'
 import FormTrabajo from './FormTrabajo'
+import { elegirFecha } from '../test-fecha'
+
+/** Las opciones de "¿Qué hiciste?" (sin los atajos del selector de fecha, que también son radios). */
+const tiposDeTrabajo = () => within(screen.getByRole('group', { name: '¿Qué hiciste?' })).getAllByRole('radio')
 
 function renderEn(ruta: string) {
   const user = userEvent.setup()
@@ -162,7 +166,7 @@ describe('arancel fijo', () => {
     const id = await lugarFijo()
     renderEn(`/trabajo/nuevo?lugar=${id}`)
     expect(await screen.findByLabelText('Descripción')).toBeInTheDocument()
-    expect(screen.getAllByRole('radio')).toHaveLength(1)
+    expect(tiposDeTrabajo()).toHaveLength(1)
     expect(screen.getByRole('radio', { name: 'Otro…' })).toBeChecked()
   })
 })
@@ -232,8 +236,7 @@ describe('fechas y trabajos olvidados', () => {
     })
 
     const user = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await user.clear(await screen.findByLabelText('Fecha'))
-    await user.type(screen.getByLabelText('Fecha'), '2026-09-20')
+    await elegirFecha(user, '2026-09-20')
     await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 
@@ -255,8 +258,7 @@ describe('fechas y trabajos olvidados', () => {
       tildados: [previo], destildados: [],
     })
     const user = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await user.clear(await screen.findByLabelText('Fecha'))
-    await user.type(screen.getByLabelText('Fecha'), '2026-09-20')
+    await elegirFecha(user, '2026-09-20')
     await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     await user.click(await screen.findByRole('button', { name: 'Sí' }))
@@ -276,8 +278,7 @@ describe('fechas y trabajos olvidados', () => {
       tildados: [previo], destildados: [],
     })
     const user = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await user.clear(await screen.findByLabelText('Fecha'))
-    await user.type(screen.getByLabelText('Fecha'), '2026-09-20')
+    await elegirFecha(user, '2026-09-20')
     await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     await user.click(await screen.findByRole('button', { name: 'Todavía no sé' }))
@@ -292,8 +293,7 @@ describe('fechas y trabajos olvidados', () => {
     const lugarId = await lugarFijo('ULTIMO', 'Clínica Centro')
     await guardarTipoTrabajo({ lugarId, nombre: 'Limpieza', precio: 2500000, orden: 0 })
     const user = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await user.clear(await screen.findByLabelText('Fecha'))
-    await user.type(screen.getByLabelText('Fecha'), '2024-10-27')
+    await elegirFecha(user, '2024-10-27')
     await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 
@@ -302,16 +302,6 @@ describe('fechas y trabajos olvidados', () => {
     expect(await db.trabajos.toArray()).toMatchObject([{ fecha: '2024-10-27', estado: 'PENDIENTE', monto: 2500000 }])
   })
 
-  test('una fecha vacía bloquea el guardado', async () => {
-    const lugarId = await lugarFijo()
-    await guardarTipoTrabajo({ lugarId, nombre: 'Limpieza', precio: 2500000, orden: 0 })
-    const user = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await user.clear(await screen.findByLabelText('Fecha'))
-    await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
-    await user.click(screen.getByRole('button', { name: 'Guardar' }))
-    expect(await screen.findByText('Elegí la fecha')).toBeInTheDocument()
-    expect(await db.trabajos.count()).toBe(0)
-  })
 })
 
 describe('guardado', () => {
@@ -532,11 +522,6 @@ describe('editar: casos delicados', () => {
     return { agosto, setiembre }
   }
 
-  async function cambiarFecha(user: ReturnType<typeof userEvent.setup>, fecha: string) {
-    await user.clear(await screen.findByLabelText('Fecha'))
-    await user.type(screen.getByLabelText('Fecha'), fecha)
-  }
-
   test('editar un trabajo PAGADO hacia otro período pagado no pregunta ni crea otro pago', async () => {
     const lugarId = await lugarFijo()
     const { agosto } = await dosPeriodosPagados(lugarId)
@@ -544,7 +529,7 @@ describe('editar: casos delicados', () => {
     expect(antes.estado).toBe('PAGADO')
 
     const user = renderEn(`/trabajo/${agosto}`)
-    await cambiarFecha(user, '2026-09-20')
+    await elegirFecha(user, '2026-09-20')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 
     expect(await screen.findByRole('heading', { name: 'Origen' })).toBeInTheDocument()
@@ -561,7 +546,7 @@ describe('editar: casos delicados', () => {
     const pendiente = await anotarTrabajo(lugarId, '2026-10-05')
 
     const user = renderEn(`/trabajo/${pendiente}`)
-    await cambiarFecha(user, '2026-09-20')
+    await elegirFecha(user, '2026-09-20')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 
     expect(await screen.findByRole('dialog', { name: '¿Este trabajo ya te lo pagaron?' })).toBeInTheDocument()
@@ -578,7 +563,7 @@ describe('editar: casos delicados', () => {
     vi.spyOn(datosPagos, 'yaMeLoPagaron').mockRejectedValueOnce(new Error('boom'))
 
     const user = renderEn(`/trabajo/${pendiente}`)
-    await cambiarFecha(user, '2026-09-20')
+    await elegirFecha(user, '2026-09-20')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     await user.click(await screen.findByRole('button', { name: 'Sí' }))
 
@@ -598,7 +583,7 @@ describe('editar: casos delicados', () => {
     vi.spyOn(datosPagos, 'marcarNoPagado').mockRejectedValueOnce(new Error('boom'))
 
     const user = renderEn(`/trabajo/${pendiente}`)
-    await cambiarFecha(user, '2026-09-20')
+    await elegirFecha(user, '2026-09-20')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     await user.click(await screen.findByRole('button', { name: 'No' }))
 
