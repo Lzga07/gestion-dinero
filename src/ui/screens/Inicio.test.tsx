@@ -382,6 +382,55 @@ describe('lugares archivados', () => {
   })
 })
 
+describe('deudas viejas', () => {
+  test('una deuda de más de 2 meses no es tarjeta: queda una línea que lleva a "Me deben"', async () => {
+    const lugarId = await lugarFijo()
+    await copiaAlDia()
+    const julio = await anotar(lugarId, '2026-07-10', 'Conducto', 85000) // período de julio: ya pasaron más de 2 meses
+    await datosPagos.marcarNoPagado(julio)
+    renderInicio()
+
+    // `findByText` normaliza el espacio no cortable de los montos; el texto es el del propio enlace.
+    const enlace = await screen.findByText('Te deben $ 85.000 de meses anteriores · Ver')
+    expect(enlace).toHaveAttribute('href', '/mas/me-deben')
+    expect(screen.queryByText(/Clínica Centro: te deben/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Avisos' })).not.toBeInTheDocument()
+  })
+
+  test('suma las deudas viejas de todos los lugares, archivados incluidos', async () => {
+    const centro = await lugarFijo()
+    const viejo = await lugarFijo('ULTIMO', 'Consultorio Viejo')
+    await copiaAlDia()
+    await datosPagos.marcarNoPagado(await anotar(centro, '2026-07-10', 'Conducto', 85000))
+    await datosPagos.marcarNoPagado(await anotar(viejo, '2026-06-15', 'Corona', 45000))
+    await archivarLugar(viejo, true)
+    renderInicio()
+
+    expect(await screen.findByText('Te deben $ 130.000 de meses anteriores · Ver')).toHaveAttribute('href', '/mas/me-deben')
+  })
+
+  test('una deuda reciente no entra en la línea', async () => {
+    const lugarId = await lugarFijo()
+    await copiaAlDia()
+    const t = await septiembre(lugarId)
+    await datosPagos.marcarNoPagado(t.corona)
+    renderInicio()
+
+    expect(await screen.findByText('Clínica Centro: te deben $ 45.000')).toBeInTheDocument()
+    expect(screen.queryByText(/de meses anteriores/)).not.toBeInTheDocument()
+  })
+
+  test('sin deudas viejas no hay línea', async () => {
+    const lugarId = await lugarFijo()
+    await copiaAlDia()
+    await anotar(lugarId, '2026-10-20', 'Limpieza', 25000)
+    renderInicio()
+
+    await screen.findByText('Octubre 2026 · hasta hoy')
+    expect(screen.queryByText(/de meses anteriores/)).not.toBeInTheDocument()
+  })
+})
+
 describe('por lugar', () => {
   test('tarjeta por lugar con total del período en curso', async () => {
     const centro = await lugarFijo()

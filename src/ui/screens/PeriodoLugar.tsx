@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { borrarPago, cerrarPeriodo, marcarNoPagado, saldarDiferencia, volverAPendiente, yaMeLoPagaron } from '../../data/pagos'
 import { resumenPeriodo } from '../../domain/conciliacion'
+import { deudasPorLugar } from '../../domain/deudas'
 import { formatFechaCorta, hoy, type FechaISO } from '../../domain/dates'
 import type { Centavos } from '../../domain/money'
 import type { Lugar, Pago, Trabajo } from '../../domain/types'
@@ -60,6 +61,8 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
 
   const periodo = periodoPedido(lugar, params.get('periodo'), hoy())
   const resumen = resumenPeriodo(lugar, periodo, trabajos, pagos)
+  // Todo lo que te debe este lugar, de cualquier período (el detalle está en "Me deben").
+  const deuda = deudasPorLugar({ hoy: hoy(), lugares: [lugar], trabajos, pagos })[0]?.monto ?? 0
   const delPeriodo = ordenarTrabajos(trabajos.filter((tr) => finDe(lugar, tr) === periodo.fin))
   const pagosDelPeriodo = pagos
     .filter((p) => p.periodoFin === periodo.fin)
@@ -106,6 +109,12 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
       />
 
       <ResumenCard resumen={resumen} />
+
+      {deuda > 0 && (
+        <Link className="enlace-deudas" to="/mas/me-deben">
+          {`Te deben ${pesosJuntos(deuda)} · Ver`}
+        </Link>
+      )}
 
       {error && (
         <p className="field__error form__error" role="alert">

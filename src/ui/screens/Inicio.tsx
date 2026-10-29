@@ -6,6 +6,7 @@ import { db } from '../../data/db'
 import { cerrarPeriodo, cobrarDeuda, noMePagaron } from '../../data/pagos'
 import { calcularAvisos, type Aviso } from '../../domain/avisos'
 import { resumenPeriodo } from '../../domain/conciliacion'
+import { deudasPorLugar, soloViejas } from '../../domain/deudas'
 import { formatFechaCorta, mesClave, nombreMes, type FechaISO } from '../../domain/dates'
 import type { Centavos } from '../../domain/money'
 import { nombrePeriodo, periodoQueContiene, type Periodo } from '../../domain/periodos'
@@ -80,6 +81,12 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
         ultimaCopia: datos.ultimaCopia, recordatorioDias: datos.recordatorioDias, hayDatos,
       }),
     [hoy, lugares, trabajos, pagos, datos.ultimaCopia, datos.recordatorioDias, hayDatos],
+  )
+
+  // Las deudas de más de 2 meses no son tarjeta: quedan en una línea que lleva a "Me deben" (archivados incluidos).
+  const deudaVieja = useMemo(
+    () => deudasPorLugar({ hoy, lugares, trabajos, pagos }).reduce((suma, d) => suma + (soloViejas(d)?.monto ?? 0), 0),
+    [hoy, lugares, trabajos, pagos],
   )
 
   // Los avisos incluyen a los lugares archivados: una deuda no se pierde por archivar el lugar.
@@ -157,6 +164,12 @@ function Vista({ datos, hoy }: { datos: Datos; hoy: FechaISO }) {
             />
           ))}
         </section>
+      )}
+
+      {deudaVieja > 0 && (
+        <Link className="enlace-deudas" to="/mas/me-deben">
+          {`Te deben ${pesosJuntos(deudaVieja)} de meses anteriores · Ver`}
+        </Link>
       )}
 
       {sinLugares ? (

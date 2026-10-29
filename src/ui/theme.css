@@ -1197,6 +1197,18 @@ a.screen-header__back {
   margin: 0;
 }
 
+/* Línea discreta que lleva a "Me deben" (Inicio y período del lugar) */
+.enlace-deudas {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  font-size: 0.9375rem;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .aviso-card {
   padding: 12px 14px;
   border: 1px solid var(--alerta-borde);
