@@ -81,7 +81,8 @@ export default function FilaCarga({ lugar, tipos, periodo, hoy, porcentajeBp, on
   const errMonto = (invalido: boolean) =>
     !ver ? null : invalido ? ERROR_MONTO : errores.has('MONTO_INVALIDO') ? MENSAJES.MONTO_INVALIDO : null
   const errDescuento = !ver ? null : descuentoInvalido ? ERROR_MONTO : errores.has('DESCUENTO_MAYOR') ? MENSAJES.DESCUENTO_MAYOR : null
-  const errPorcentaje = ver && errores.has('PORCENTAJE_INVALIDO') ? MENSAJES.PORCENTAJE_INVALIDO : null
+  // El campo es del mes, no del lugar: no repite el texto de FormTrabajo ("…del lugar").
+  const errPorcentaje = ver && errores.has('PORCENTAJE_INVALIDO') ? 'Revisá el porcentaje de este mes' : null
 
   // Al fallar el intento, el foco va al primer campo inválido.
   useEffect(() => {

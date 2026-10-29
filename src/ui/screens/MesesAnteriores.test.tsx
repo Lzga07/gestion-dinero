@@ -396,7 +396,8 @@ describe('FilaCarga', () => {
 
       expect(screen.getByText('Escribí qué hiciste')).toBeInTheDocument()
       expect(screen.getByText('Monto inválido. Usá coma para los decimales (ej: 1.234,50)')).toBeInTheDocument()
-      expect(screen.getByText('Revisá el porcentaje del lugar')).toBeInTheDocument()
+      expect(screen.getByText('Revisá el porcentaje de este mes')).toBeInTheDocument()
+      expect(screen.queryByText('Revisá el porcentaje del lugar')).not.toBeInTheDocument()
       expect(await guardados()).toHaveLength(0)
     })
 
