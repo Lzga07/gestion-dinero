@@ -1,5 +1,7 @@
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { db } from '../../data/db'
 import { mesCerrado } from '../../data/mesesAnteriores'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { periodoAnterior, periodoQueContiene, type Periodo } from '../../domain/periodos'
@@ -10,6 +12,7 @@ import Encabezado from '../components/Encabezado'
 import useVolver from '../components/useVolver'
 import { useHoy } from '../hooks/useHoy'
 import { pesosJuntos } from '../pesos'
+import FilaCarga from './anteriores/FilaCarga'
 import SelectorMes from './anteriores/SelectorMes'
 import { periodoOfrecido } from './anteriores/utils'
 import { etiquetaTrabajo, finDe, periodoPedido, plural, sumaMontos, useDatosLugar } from './periodo/utils'
@@ -53,6 +56,11 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
       : periodoAnterior(lugar.reglasCierre, periodoQueContiene(lugar.reglasCierre, hoy))
   })
 
+  // El porcentaje y el modo de carga son del mes que se está cargando (no del lugar) y se recuerdan al cambiar de mes.
+  const [porcentajeBp, setPorcentajeBp] = useState(lugar.porcentajeBp ?? 0)
+  const [modo, setModo] = useState<'CLIENTE' | 'DIRECTO'>('CLIENTE')
+  const tipos = useLiveQuery(() => db.tiposTrabajo.where('lugarId').equals(lugar.id).sortBy('orden'), [lugar.id])
+
   const resumen = resumenPeriodo(lugar, periodo, trabajos, pagos)
   const delMes = enOrden(trabajos.filter((tr) => finDe(lugar, tr) === periodo.fin))
   const cerrado = mesCerrado(resumen)
@@ -72,7 +80,22 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
         </Card>
       )}
 
-      {/* Acá va la fila para cargar un trabajo (solo si el mes no está cerrado). */}
+      {!cerrado &&
+        (tipos === undefined ? (
+          <Cargando />
+        ) : (
+          <FilaCarga
+            key={periodo.fin}
+            lugar={lugar}
+            tipos={tipos}
+            periodo={periodo}
+            hoy={hoy}
+            porcentajeBp={porcentajeBp}
+            onPorcentaje={setPorcentajeBp}
+            modo={modo}
+            onModo={setModo}
+          />
+        ))}
 
       {delMes.length > 0 && (
         <>

@@ -7,12 +7,7 @@ import { marcarNoPagado, yaMeLoPagaron } from '../../data/pagos'
 import { borrarTrabajo, guardarTrabajo } from '../../data/trabajos'
 import { formatFechaCorta, hoy } from '../../domain/dates'
 import { formatPorcentaje, type Centavos } from '../../domain/money'
-import {
-  calcularTrabajo,
-  type EntradaTrabajo,
-  type ErrorTrabajo,
-  type ResultadoTrabajo,
-} from '../../domain/trabajos'
+import { calcularTrabajo, type EntradaTrabajo, type ResultadoTrabajo } from '../../domain/trabajos'
 import type { Lugar, TipoTrabajo, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
@@ -25,16 +20,9 @@ import SelectorFecha from '../components/SelectorFecha'
 import useVolver from '../components/useVolver'
 import { leerFechaRecordada, recordarFecha } from '../hooks/fechaRecordada'
 import { pesosJuntos } from '../pesos'
+import { erroresDe, MENSAJES } from './trabajo-errores'
 
 const AVISO_EN_PAGO = 'Este trabajo ya está en un pago: cambiarlo modifica la conciliación de ese período'
-
-const MENSAJES: Record<ErrorTrabajo, string> = {
-  FALTA_TIPO: 'Elegí qué hiciste',
-  FALTA_DESCRIPCION: 'Escribí qué hiciste',
-  MONTO_INVALIDO: 'Ingresá un monto mayor a 0',
-  DESCUENTO_MAYOR: 'El descuento tiene que ser menor a lo que pagó el cliente',
-  PORCENTAJE_INVALIDO: 'Revisá el porcentaje del lugar',
-}
 
 /** Valor del chip "Otro…" (los ids de tipos son UUID: no chocan). */
 const OTRO = '__otro__'
@@ -95,21 +83,6 @@ function textoMudanza(trabajo: Trabajo, de: string, a: string): string {
   return trabajo.estado === 'PAGADO'
     ? `Este trabajo estaba pagado en ${de}. Al moverlo vuelve a pendiente en ${a} y el pago de ${de} queda con esa diferencia.`
     : `Este trabajo estaba marcado como no pagado en ${de}. Al moverlo vuelve a pendiente en ${a} y deja de ser una deuda de ${de}.`
-}
-
-/** Todos los errores a la vez: si falta la descripción, igual se revisa lo demás. */
-function erroresDe(entrada: EntradaTrabajo): Set<ErrorTrabajo> {
-  const errores = new Set<ErrorTrabajo>()
-  let actual = entrada
-  for (let i = 0; i < 2; i++) {
-    const r = calcularTrabajo(actual)
-    if (r.ok) break
-    errores.add(r.error)
-    if (r.error !== 'FALTA_DESCRIPCION') break
-    actual =
-      actual.forma === 'ARANCEL_FIJO' ? { ...actual, otroNombre: 'x' } : { ...actual, descripcion: 'x' }
-  }
-  return errores
 }
 
 function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string | null }) {

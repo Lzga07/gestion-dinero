@@ -2137,3 +2137,33 @@ button.lugar-row {
   font-size: 0.875rem;
   color: var(--muted);
 }
+
+/* Cargar meses anteriores: la fila para anotar los trabajos de corrido */
+.fila-carga .field {
+  margin-bottom: 12px;
+}
+
+.fila-carga__campos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 0 12px;
+}
+
+.fila-carga__campos > :only-child {
+  grid-column: 1 / -1;
+}
+
+.fila-carga__cuenta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.fila-carga__cuenta strong {
+  font-size: 1rem;
+  color: var(--text);
+}
