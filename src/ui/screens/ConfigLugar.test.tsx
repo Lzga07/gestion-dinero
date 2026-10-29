@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { db } from '../../data/db'
 import { ErrorDatos } from '../../data/errores'
@@ -11,13 +11,19 @@ import ConfigLugar from './ConfigLugar'
 import Lugares from './Lugares'
 
 function Anteriores() {
-  return <h1>{`Anteriores de ${useParams().id}`}</h1>
+  const navigate = useNavigate()
+  return (
+    <>
+      <h1>{`Anteriores de ${useParams().id}`}</h1>
+      <button onClick={() => navigate(-1)}>Volver</button>
+    </>
+  )
 }
 
-function renderEn(ruta: string) {
+function renderEn(ruta: string | string[]) {
   const user = userEvent.setup()
   render(
-    <MemoryRouter initialEntries={[ruta]}>
+    <MemoryRouter initialEntries={Array.isArray(ruta) ? ruta : [ruta]} initialIndex={Array.isArray(ruta) ? ruta.length - 1 : 0}>
       <Routes>
         <Route path="/lugares" element={<Lugares />} />
         <Route path="/lugares/nuevo" element={<ConfigLugar />} />
@@ -143,6 +149,21 @@ describe('nuevo lugar', () => {
     await user.click(within(dialogo).getByRole('button', { name: 'Cargar meses anteriores' }))
 
     expect(await screen.findByRole('heading', { name: `Anteriores de ${lugar.id}` })).toBeInTheDocument()
+  })
+
+  test('después de aceptar el diálogo, volver atrás no deja un "Nuevo lugar" vacío', async () => {
+    // Se llega a "Nuevo lugar" desde la lista, como en la app.
+    const user = renderEn(['/lugares', '/lugares/nuevo'])
+    await user.type(screen.getByLabelText('Nombre'), 'Consultorio Sur')
+    await user.click(screen.getByRole('radio', { name: 'Porcentaje' }))
+    await user.type(screen.getByLabelText('Porcentaje que te corresponde'), '40')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cargar meses anteriores' }))
+    await user.click(await screen.findByRole('button', { name: 'Volver' }))
+
+    expect(await screen.findByRole('heading', { name: 'Lugares' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Nuevo lugar' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
   })
 
   test('"Ahora no" sigue a Lugares, con el lugar ya guardado', async () => {

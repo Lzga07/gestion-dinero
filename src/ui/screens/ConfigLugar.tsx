@@ -492,8 +492,9 @@ function Formulario({ datos }: { datos: Datos | null }) {
           texto="Cargá los meses anteriores para tener todo en la app."
           confirmar="Cargar meses anteriores"
           cancelar="Ahora no"
-          onConfirm={() => navigate(`/lugares/${idNuevo}/anteriores`)}
-          onCancel={() => navigate('/lugares')}
+          // replace: así "Nuevo lugar" (ya guardado) no queda en el historial al volver con la ✕.
+          onConfirm={() => navigate(`/lugares/${idNuevo}/anteriores`, { replace: true })}
+          onCancel={() => navigate('/lugares', { replace: true })}
         />
       )}
       {dialogo === 'calendario' && (
