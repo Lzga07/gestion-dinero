@@ -3,11 +3,11 @@ import { avisoDeuda, deudasPorLugar, esDeudaVieja, soloRecientes, soloViejas } f
 import { INICIO_DE_LOS_TIEMPOS } from './periodos';
 import type { EstadoPago, Lugar, Pago, TipoPago, Trabajo } from './types';
 
-function t(id: string, fecha: string, monto: number, estado: EstadoPago = 'PENDIENTE', pagoId: string | null = null, lugarId = 'L1'): Trabajo {
+function t(id: string, fecha: string, monto: number, estado: EstadoPago = 'PENDIENTE', pagoId: string | null = null, lugarId = 'L1', creadoEn = ''): Trabajo {
   return {
     id, lugarId, fecha, descripcion: id, tipoTrabajoId: null, precioLista: null,
     montoCliente: null, descuento: null, descuentoMotivo: null, porcentajeBp: null,
-    monto, nota: '', estado, pagoId, creadoEn: '', actualizadoEn: '',
+    monto, nota: '', estado, pagoId, creadoEn, actualizadoEn: '',
   };
 }
 
@@ -25,8 +25,9 @@ function pago(id: string, periodoFin: string, monto: number, tipo: TipoPago, lug
 
 describe('esDeudaVieja', () => {
   test('es vieja pasados 2 meses del fin del período', () => {
-    expect(esDeudaVieja('2026-10-31', '2026-12-31')).toBe(false);
-    expect(esDeudaVieja('2026-10-31', '2027-01-01')).toBe(true);
+    expect(esDeudaVieja('2026-10-31', '2026-12-30')).toBe(false); // un día antes del límite
+    expect(esDeudaVieja('2026-10-31', '2026-12-31')).toBe(false); // el día justo
+    expect(esDeudaVieja('2026-10-31', '2027-01-01')).toBe(true); // un día después
   });
   test('fin de mes corto: el límite cae en el último día del mes', () => {
     expect(esDeudaVieja('2026-12-31', '2027-02-28')).toBe(false);
@@ -55,6 +56,15 @@ describe('deudasPorLugar', () => {
       ['2026-10-31', false, 3000000, 3000000, []],
     ]);
     expect(r[0].monto).toBe(7000000);
+  });
+
+  test('los no pagados de un período van por fecha y, a igual fecha, por cuándo se anotaron (no por id)', () => {
+    // Los ids van al revés del orden de carga: la base los devuelve por id.
+    const tarde = t('a', '2026-10-10', 100, 'NO_PAGADO', null, 'L1', '2026-10-11T10:00:00.000Z');
+    const temprano = t('b', '2026-10-10', 100, 'NO_PAGADO', null, 'L1', '2026-10-11T09:00:00.000Z');
+    const antes = t('c', '2026-10-05', 100, 'NO_PAGADO', null, 'L1', '2026-10-12T09:00:00.000Z');
+    const [d] = deudasPorLugar({ ...args, trabajos: [tarde, temprano, antes], pagos: [] });
+    expect(d.periodos[0].noPagados.map(x => x.id)).toEqual(['c', 'b', 'a']);
   });
 
   test('incluye lugares archivados, deja afuera los que no deben y ordena por nombre', () => {

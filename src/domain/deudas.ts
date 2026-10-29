@@ -33,6 +33,10 @@ export interface DeudasLugar {
 
 const suma = (ts: Trabajo[]): Centavos => ts.reduce((s, tr) => s + tr.monto, 0);
 
+/** Por fecha y, a igual fecha, en el orden en que se anotaron (la base los devuelve por id, que es un uuid). */
+const porFechaYCarga = (x: Trabajo, y: Trabajo): number =>
+  x.fecha !== y.fecha ? (x.fecha < y.fecha ? -1 : 1) : x.creadoEn < y.creadoEn ? -1 : x.creadoEn > y.creadoEn ? 1 : 0;
+
 type Conciliacion = ReturnType<typeof conciliacionDelLugar>;
 
 /** La deuda de un lugar ya conciliado, o null si no debe nada. (Evita conciliar dos veces cuando ya se tiene.) */
@@ -42,7 +46,7 @@ export function deudasDelLugar(lugar: Lugar, conciliacion: Conciliacion, hoy: Fe
     const r = conciliacion.resumen(periodo);
     const monto = suma(r.noPagados) + r.deudaPlata;
     if (r.noPagados.length === 0 && monto <= 0) continue;
-    periodos.push({ periodo, noPagados: r.noPagados, plata: r.deudaPlata, monto, vieja: esDeudaVieja(periodo.fin, hoy) });
+    periodos.push({ periodo, noPagados: [...r.noPagados].sort(porFechaYCarga), plata: r.deudaPlata, monto, vieja: esDeudaVieja(periodo.fin, hoy) });
   }
   return periodos.length === 0 ? null : { lugar, periodos, monto: periodos.reduce((s, p) => s + p.monto, 0) };
 }
