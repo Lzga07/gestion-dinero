@@ -7,6 +7,7 @@ import { archivarLugar, crearLugar, guardarTipoTrabajo } from '../../data/lugare
 import * as datosMeses from '../../data/mesesAnteriores'
 import { marcarNoPagado, registrarPago } from '../../data/pagos'
 import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
+import * as datosTrabajos from '../../data/trabajos'
 import { resumenPeriodo } from '../../domain/conciliacion'
 import { elegirFecha, fechaElegida } from '../test-fecha'
 import MesesAnteriores from './MesesAnteriores'
@@ -403,11 +404,21 @@ describe('FilaCarga', () => {
 
     test('doble toque en "Agregar" crea un solo trabajo', async () => {
       const id = await lugarConLista()
+      // Guardar tarda: el segundo envío llega con el primero todavía en curso.
+      const original = datosTrabajos.guardarTrabajo
+      const espia = vi.spyOn(datosTrabajos, 'guardarTrabajo').mockImplementation(async (...args) => {
+        await new Promise((resolver) => setTimeout(resolver, 30))
+        return original(...args)
+      })
       const user = renderEn(`/lugares/${id}/anteriores`)
       await user.selectOptions(await screen.findByLabelText('¿Qué hiciste?'), 'Limpieza')
-      await user.dblClick(agregar())
+
+      const form = agregar().closest('form')!
+      fireEvent.submit(form)
+      fireEvent.submit(form)
 
       await waitFor(() => expect(screen.getByLabelText('¿Qué hiciste?')).toHaveValue(''))
+      expect(espia).toHaveBeenCalledTimes(1)
       expect(await guardados()).toHaveLength(1)
     })
 
