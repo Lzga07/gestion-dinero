@@ -92,8 +92,8 @@ describe('guardar y anotar otro', () => {
     expect(screen.getByLabelText('Descuento antes del % (opcional)')).toHaveValue('')
     expect(screen.queryByLabelText('Motivo del descuento (opcional)')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Nota (opcional)')).toHaveValue('')
-    await waitFor(() => expect(screen.getByLabelText('¿Qué hiciste?')).toHaveFocus())
     // El foco lo pone un efecto, en una tarea posterior: se espera.
+    await waitFor(() => expect(screen.getByLabelText('¿Qué hiciste?')).toHaveFocus())
     expect(screen.getByRole('button', { name: OTRO_BOTON })).toBeEnabled()
 
     // El siguiente se guarda como un trabajo nuevo, no pisa el anterior.
