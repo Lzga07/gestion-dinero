@@ -1,6 +1,6 @@
 import type { ResumenPeriodo } from '../domain/conciliacion';
 import type { FechaISO } from '../domain/dates';
-import type { Centavos } from '../domain/money';
+import { MAX_CENTAVOS, type Centavos } from '../domain/money';
 import { periodoQueContiene, type Periodo } from '../domain/periodos';
 import { db } from './db';
 import { ErrorDatos } from './errores';
@@ -18,7 +18,7 @@ export type CierreMes =
  * diferencia queda como deuda en plata); NADA los pasa a NO_PAGADO. Sin pendientes no hace nada.
  */
 export async function cerrarMes(lugarId: string, periodo: Periodo, cierre: CierreMes): Promise<void> {
-  if (cierre.tipo === 'PARTE' && cierre.monto <= 0) throw new ErrorDatos('MONTO_INVALIDO');
+  if (cierre.tipo === 'PARTE' && (!Number.isSafeInteger(cierre.monto) || cierre.monto <= 0 || cierre.monto > MAX_CENTAVOS)) throw new ErrorDatos('MONTO_INVALIDO');
   await db.transaction('rw', db.lugares, db.trabajos, db.pagos, async () => {
     const lugar = await db.lugares.get(lugarId);
     if (!lugar) throw new ErrorDatos('LUGAR_INEXISTENTE');

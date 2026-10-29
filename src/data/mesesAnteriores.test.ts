@@ -1,6 +1,7 @@
 import { beforeEach, expect, test } from 'vitest';
 import { db } from './db';
 import { resumenPeriodo } from '../domain/conciliacion';
+import { MAX_CENTAVOS } from '../domain/money';
 import { periodoQueContiene } from '../domain/periodos';
 import { cerrarMes, mesCerrado } from './mesesAnteriores';
 import { anotarTrabajo, lugarFijo, reiniciarDb } from './test-helpers';
@@ -57,7 +58,7 @@ test.each([30000, 35000])('PARTE por igual o más (%i): sin deuda y el pago es l
   expect((await resumen()).deudaPlata).toBe(0);
 });
 
-test.each([0, -100])('PARTE con monto %i lanza MONTO_INVALIDO y no escribe nada', async monto => {
+test.each([0, -100, NaN, 1.5, MAX_CENTAVOS + 1])('PARTE con monto %s lanza MONTO_INVALIDO y no escribe nada', async monto => {
   const { lugarId, ids, periodo } = await agosto();
 
   await expect(cerrarMes(lugarId, periodo, { tipo: 'PARTE', fecha: '2026-09-03', monto }))
