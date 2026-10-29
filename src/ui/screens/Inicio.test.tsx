@@ -11,6 +11,7 @@ import { registrarPago } from '../../data/pagos'
 import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import Inicio from './Inicio'
 import { anotar, septiembre } from './periodo/test-fixtures'
+import { fechaElegida } from '../test-fecha'
 
 function renderInicio() {
   const user = userEvent.setup()
@@ -213,7 +214,7 @@ describe('avisos', () => {
     expect(within(dialogo).getByLabelText(/10 ago · Conducto/)).toBeInTheDocument()
     expect(within(dialogo).getByLabelText(/26 sep · Corona/)).toBeInTheDocument()
     expect(within(dialogo).getByLabelText(/Diferencia en pago de 1 – 30 sep/)).toBeInTheDocument()
-    expect(within(dialogo).getByLabelText('Fecha del pago')).toHaveValue('2026-10-27')
+    expect(await fechaElegida('Fecha del pago', dialogo)).toBe('2026-10-27')
 
     // sin elegir nada no guarda
     await user.click(within(dialogo).getByRole('button', { name: 'Guardar' }))

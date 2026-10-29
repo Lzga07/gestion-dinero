@@ -5,6 +5,7 @@ import { crearPin, quitarPin, tienePin, verificarPinGuardado } from '../../data/
 import { pinValido } from '../../platform/pin'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import Encabezado from '../components/Encabezado'
 import Field, { type FieldControlProps } from '../components/Field'
 import useVolver from '../components/useVolver'
@@ -65,7 +66,7 @@ export default function ConfigPin() {
   const [problema, setProblema] = useState<(Problema & { seccion: Seccion }) | null>(null)
   const [ocupado, setOcupado] = useState(false)
 
-  if (hay === undefined) return null // cargando
+  if (hay === undefined) return <Cargando />
 
   const errorDe = (seccion: Seccion, campo: Campo) =>
     problema?.seccion === seccion && problema.campo === campo ? problema.texto : null

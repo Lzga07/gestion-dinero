@@ -4,6 +4,7 @@ import { pedirPersistencia } from '../platform/persistencia'
 import AvisoVersionNueva from './components/AvisoVersionNueva'
 import BannerInstalar from './components/BannerInstalar'
 import BottomNav from './components/BottomNav'
+import Cargando from './components/Cargando'
 import Categorias from './screens/Categorias'
 import { useBloqueo } from './hooks/useBloqueo'
 import Bloqueo from './screens/Bloqueo'
@@ -69,6 +70,8 @@ export default function App() {
           </HashRouter>
         </div>
       )}
+      {/* Mientras se lee si hay PIN no se dibuja nada de la app; si la base no contesta, se avisa. */}
+      {bloqueo.fase === 'cargando' && <Cargando />}
       {bloqueo.fase === 'comprobando' && <Tapa />}
       {bloqueo.fase === 'bloqueada' && <Bloqueo onDesbloquear={bloqueo.desbloquear} />}
       {bloqueo.fase === 'error' && <ErrorApertura onReintentar={bloqueo.reintentar} />}

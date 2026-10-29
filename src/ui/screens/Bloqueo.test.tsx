@@ -99,6 +99,19 @@ describe('al abrir la app', () => {
     expect(screen.getByRole('group', { name: '6 dígitos ingresados' })).toBeInTheDocument()
   })
 
+  test('muestra un punto por dígito tecleado sobre una línea, sin lugares vacíos que delaten el largo', async () => {
+    await crearPin('1234')
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Ingresá tu PIN' })
+
+    expect(screen.getByRole('group', { name: '0 dígitos ingresados' })).toHaveTextContent(/^$/)
+    await teclear(user, '1234')
+    expect(screen.getByRole('group', { name: '4 dígitos ingresados' })).toHaveTextContent(/^●●●●$/)
+    await user.click(screen.getByRole('button', { name: 'Borrar' }))
+    expect(screen.getByRole('group', { name: '3 dígitos ingresados' })).toHaveTextContent(/^●●●$/)
+  })
+
   test('también anda con el teclado físico: dígitos, Borrar y Enter', async () => {
     await crearPin('1234')
     const user = userEvent.setup()

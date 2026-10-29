@@ -7,6 +7,7 @@ import type { Centavos } from '../../domain/money'
 import type { Lugar, Pago, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import ConfirmDialog from '../components/ConfirmDialog'
 import DialogCompartir from '../components/DialogCompartir'
 import DialogoYaPagaron from '../components/DialogoYaPagaron'
@@ -37,7 +38,7 @@ function etiquetaPago(p: Pago): string {
 export default function PeriodoLugar() {
   const { id } = useParams()
   const datos = useDatosLugar(id)
-  if (datos === undefined) return null // cargando
+  if (datos === undefined) return <Cargando />
   if (!datos.lugar) {
     return (
       <section>

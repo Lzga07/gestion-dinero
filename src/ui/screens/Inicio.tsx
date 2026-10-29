@@ -15,6 +15,7 @@ import { resumenMes } from '../../domain/totales'
 import type { Lugar, Movimiento, Pago, Trabajo } from '../../domain/types'
 import AvisoCard, { type AvisoDeuda } from '../components/AvisoCard'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import ConfirmDialog from '../components/ConfirmDialog'
 import DialogCompartir from '../components/DialogCompartir'
 import DialogoCobrarDeuda from '../components/DialogoCobrarDeuda'
@@ -57,7 +58,7 @@ type Confirmacion =
 export default function Inicio() {
   const datos = useDatos()
   const hoy = useHoy()
-  if (datos === undefined) return null // cargando
+  if (datos === undefined) return <Cargando />
   return <Vista datos={datos} hoy={hoy} />
 }
 

@@ -16,15 +16,15 @@ import {
 import type { Lugar, TipoTrabajo, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
 import MoneyInput, { ERROR_MONTO } from '../components/MoneyInput'
+import SelectorFecha from '../components/SelectorFecha'
 import useVolver from '../components/useVolver'
 import { leerFechaRecordada, recordarFecha } from '../hooks/fechaRecordada'
-import { useHoy } from '../hooks/useHoy'
 import { pesosJuntos } from '../pesos'
-import AvisoNoEsHoy from './trabajo/AvisoNoEsHoy'
 
 const AVISO_EN_PAGO = 'Este trabajo ya está en un pago: cambiarlo modifica la conciliación de ese período'
 
@@ -63,7 +63,7 @@ export default function FormTrabajo() {
     [id],
   )
 
-  if (datos === undefined) return null // cargando
+  if (datos === undefined) return <Cargando />
   if (id && !datos.trabajo) {
     return (
       <section>
@@ -132,7 +132,6 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
   })
   // Un trabajo nuevo arranca en la fecha del último guardado hace poco (carga de trabajos atrasados).
   const [fecha, setFecha] = useState(() => trabajo?.fecha ?? leerFechaRecordada() ?? hoy())
-  const hoyFecha = useHoy()
   const [nota, setNota] = useState(trabajo?.nota ?? '')
 
   // Arancel fijo
@@ -198,8 +197,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
   const res: ResultadoTrabajo = calcularTrabajo(entrada)
   const errores = erroresDe(entrada)
   const hayInvalido = esPorcentaje ? clienteInvalido || descuentoInvalido : seleccion === OTRO && otroInvalido
-  const errFecha = fecha === '' ? 'Elegí la fecha' : null
-  const hayErrores = errores.size > 0 || hayInvalido || !!errFecha
+  const hayErrores = errores.size > 0 || hayInvalido
   const ver = intentado > 0
 
   const errTipo = ver && errores.has('FALTA_TIPO') ? MENSAJES.FALTA_TIPO : null
@@ -391,18 +389,7 @@ function Formulario({ datos, lugarPedido }: { datos: Datos; lugarPedido: string 
             )}
           </Field>
 
-          <Field label="Fecha" error={ver ? errFecha : null}>
-            {(control) => (
-              <input
-                {...control}
-                className="input"
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-              />
-            )}
-          </Field>
-          {!trabajo && <AvisoNoEsHoy fecha={fecha} hoy={hoyFecha} onHoy={() => setFecha(hoy())} />}
+          <SelectorFecha label="Fecha" value={fecha} onChange={setFecha} />
 
           {esPorcentaje ? (
             <>

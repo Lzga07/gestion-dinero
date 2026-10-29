@@ -11,6 +11,10 @@ import { anotarTrabajo, lugarFijo, reiniciarDb } from '../../data/test-helpers'
 import { hoy } from '../../domain/dates'
 import { CLAVE_FECHA_RECORDADA } from '../hooks/fechaRecordada'
 import FormTrabajo from './FormTrabajo'
+import { elegirFecha, fechaElegida } from '../test-fecha'
+
+/** Las opciones de "¿Qué hiciste?" (sin los atajos del selector de fecha, que también son radios). */
+const tiposDeTrabajo = () => within(screen.getByRole('group', { name: '¿Qué hiciste?' })).getAllByRole('radio')
 
 function renderEn(ruta: string) {
   const user = userEvent.setup()
@@ -53,11 +57,6 @@ const OTRO_BOTON = 'Guardar y anotar otro'
 const OTRO_TEXTO = OTRO_BOTON
 const FECHA_PAPEL = '2026-05-03'
 
-async function ponerFecha(user: ReturnType<typeof userEvent.setup>, fecha: string) {
-  await user.clear(await screen.findByLabelText('Fecha'))
-  await user.type(screen.getByLabelText('Fecha'), fecha)
-}
-
 beforeEach(async () => {
   window.sessionStorage.clear()
   await reiniciarDb()
@@ -68,7 +67,7 @@ describe('guardar y anotar otro', () => {
   test('en un lugar con porcentaje guarda, no navega, conserva lugar y fecha, limpia el resto y anuncia', async () => {
     const lugarId = await lugarPorcentaje()
     const { user } = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await ponerFecha(user, FECHA_PAPEL)
+    await elegirFecha(user, FECHA_PAPEL)
     expect(screen.getByRole('status')).toBeEmptyDOMElement()
 
     await user.type(screen.getByLabelText('¿Qué hiciste?'), 'Corona')
@@ -87,7 +86,7 @@ describe('guardar y anotar otro', () => {
     expect(await leerAjuste('ultimoLugarId', null)).toBe(lugarId)
 
     expect(screen.getByLabelText('Lugar')).toHaveValue(lugarId)
-    expect(screen.getByLabelText('Fecha')).toHaveValue(FECHA_PAPEL)
+    expect(await fechaElegida()).toBe(FECHA_PAPEL)
     expect(screen.getByLabelText('¿Qué hiciste?')).toHaveValue('')
     expect(screen.getByLabelText('Lo que pagó el cliente')).toHaveValue('')
     expect(screen.getByLabelText('Descuento antes del % (opcional)')).toHaveValue('')
@@ -112,10 +111,10 @@ describe('guardar y anotar otro', () => {
     await user.click(screen.getByRole('button', { name: OTRO_BOTON }))
 
     expect(await screen.findByText('Guardado: Arreglo · $ 38.000 · ' + new Date().getDate() + ' ' + MES_ACTUAL)).toBeInTheDocument()
-    expect(screen.getAllByRole('radio').every((r) => !(r as HTMLInputElement).checked)).toBe(true)
+    expect(tiposDeTrabajo().every((r) => !(r as HTMLInputElement).checked)).toBe(true)
     expect(screen.getByLabelText('Nota (opcional)')).toHaveValue('')
-    expect(screen.getAllByRole('radio')[0]).toHaveFocus()
-    expect(screen.getByLabelText('Fecha')).toHaveValue(hoy())
+    expect(tiposDeTrabajo()[0]).toHaveFocus()
+    expect(await fechaElegida()).toBe(hoy())
     expect(await db.trabajos.toArray()).toMatchObject([{ descripcion: 'Arreglo', monto: 3800000, nota: 'Paciente' }])
   })
 
@@ -200,7 +199,7 @@ describe('guardar y anotar otro', () => {
       const lugarId = await lugarConTipos()
       const previo = await periodoPagado(lugarId)
       const { user } = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-      await ponerFecha(user, '2026-09-20')
+      await elegirFecha(user, '2026-09-20')
       await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
       await user.click(screen.getByRole('button', { name: OTRO_BOTON }))
       expect(await screen.findByRole('dialog', { name: '¿Este trabajo ya te lo pagaron?' })).toBeInTheDocument()
@@ -218,8 +217,8 @@ describe('guardar y anotar otro', () => {
       expect(screen.queryByRole('heading', { name: 'Origen' })).not.toBeInTheDocument()
       const nuevo = (await db.trabajos.toArray()).find((t) => t.id !== previo)!
       expect(nuevo).toMatchObject({ fecha: '2026-09-20', estado: 'NO_PAGADO' })
-      expect(screen.getByLabelText('Fecha')).toHaveValue('2026-09-20')
-      expect(screen.getAllByRole('radio').every((r) => !(r as HTMLInputElement).checked)).toBe(true)
+      expect(await fechaElegida()).toBe('2026-09-20')
+      expect(tiposDeTrabajo().every((r) => !(r as HTMLInputElement).checked)).toBe(true)
       expect(screen.getByRole('button', { name: OTRO_BOTON })).toBeEnabled()
 
       // Se puede anotar el siguiente (otro trabajo, no una edición del anterior).
@@ -292,21 +291,22 @@ function recordar(fecha: string, haceMs: number) {
 const MIN = 60_000
 
 describe('recordar la última fecha usada', () => {
-  test('dentro de los 30 minutos arranca en la fecha anterior y avisa que no es hoy', async () => {
+  test('dentro de los 30 minutos arranca en la fecha anterior, marcada como "Otro día…" y sin cartel aparte', async () => {
     const lugarId = await lugarConTipos()
     recordar(FECHA_PAPEL, 10 * MIN)
     renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    expect(await screen.findByLabelText('Fecha')).toHaveValue(FECHA_PAPEL)
-    expect(screen.getByText('No es hoy: 3 de mayo de 2026')).toBeInTheDocument()
+    expect(await fechaElegida()).toBe(FECHA_PAPEL)
+    expect(screen.getByRole('radio', { name: 'Otro día…' })).toBeChecked()
+    expect(screen.getByText('Domingo 3 de mayo')).toBeInTheDocument()
+    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
   })
 
   test('pasados los 30 minutos arranca en hoy y no avisa', async () => {
     const lugarId = await lugarConTipos()
     recordar(FECHA_PAPEL, 31 * MIN)
     renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    expect(await screen.findByLabelText('Fecha')).toHaveValue(hoy())
-    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Hoy' })).not.toBeInTheDocument()
+    expect(await fechaElegida()).toBe(hoy())
+    expect(screen.getByRole('radio', { name: 'Hoy' })).toBeChecked()
   })
 
   test('sin storage (o con un valor roto) arranca en hoy', async () => {
@@ -315,14 +315,14 @@ describe('recordar la última fecha usada', () => {
       throw new Error('sin storage')
     })
     renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    expect(await screen.findByLabelText('Fecha')).toHaveValue(hoy())
+    expect(await fechaElegida()).toBe(hoy())
   })
 
   test('un valor roto en el storage se ignora', async () => {
     const lugarId = await lugarConTipos()
     window.sessionStorage.setItem(CLAVE_FECHA_RECORDADA, '{no es json')
     renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    expect(await screen.findByLabelText('Fecha')).toHaveValue(hoy())
+    expect(await fechaElegida()).toBe(hoy())
   })
 
   test('si no hay storage para guardar, el trabajo igual se guarda', async () => {
@@ -337,50 +337,40 @@ describe('recordar la última fecha usada', () => {
     expect(await db.trabajos.count()).toBe(1)
   })
 
-  test('"Hoy" la corrige y el aviso desaparece', async () => {
+  test('"Hoy" la corrige de un toque', async () => {
     const lugarId = await lugarConTipos()
     recordar(FECHA_PAPEL, 1 * MIN)
     const { user } = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await screen.findByText('No es hoy: 3 de mayo de 2026')
-    await user.click(screen.getByRole('button', { name: 'Hoy' }))
-    expect(screen.getByLabelText('Fecha')).toHaveValue(hoy())
-    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
-  })
-
-  test('el aviso sigue a la fecha que se tipea a mano', async () => {
-    const lugarId = await lugarConTipos()
-    const { user } = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    expect(await screen.findByLabelText('Fecha')).toHaveValue(hoy())
-    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
-    await ponerFecha(user, FECHA_PAPEL)
-    expect(screen.getByText('No es hoy: 3 de mayo de 2026')).toBeInTheDocument()
+    expect(await fechaElegida()).toBe(FECHA_PAPEL)
+    await user.click(screen.getByRole('radio', { name: 'Hoy' }))
+    expect(await fechaElegida()).toBe(hoy())
   })
 
   test('guardar con una fecha pasada la recuerda para el próximo formulario; guardar con hoy la olvida', async () => {
     const lugarId = await lugarConTipos()
     const primero = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await ponerFecha(primero.user, FECHA_PAPEL)
+    await elegirFecha(primero.user, FECHA_PAPEL)
     await primero.user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await primero.user.click(screen.getByRole('button', { name: 'Guardar' }))
     await screen.findByRole('heading', { name: 'Origen' })
     primero.unmount()
 
     const segundo = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    expect(await screen.findByLabelText('Fecha')).toHaveValue(FECHA_PAPEL)
-    await segundo.user.click(screen.getByRole('button', { name: 'Hoy' }))
+    expect(await fechaElegida()).toBe(FECHA_PAPEL)
+    await segundo.user.click(screen.getByRole('radio', { name: 'Hoy' }))
     await segundo.user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await segundo.user.click(screen.getByRole('button', { name: 'Guardar' }))
     await screen.findByRole('heading', { name: 'Origen' })
     segundo.unmount()
 
     renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    expect(await screen.findByLabelText('Fecha')).toHaveValue(hoy())
+    expect(await fechaElegida()).toBe(hoy())
   })
 
   test('guardar y anotar otro también deja recordada la fecha', async () => {
     const lugarId = await lugarConTipos()
     const { user, unmount } = renderEn(`/trabajo/nuevo?lugar=${lugarId}`)
-    await ponerFecha(user, FECHA_PAPEL)
+    await elegirFecha(user, FECHA_PAPEL)
     await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await user.click(screen.getByRole('button', { name: OTRO_BOTON }))
     await screen.findByText(/^Guardado: Limpieza/)
@@ -390,13 +380,12 @@ describe('recordar la última fecha usada', () => {
     unmount()
   })
 
-  test('editar un trabajo usa su fecha, no muestra el aviso y no toca lo recordado', async () => {
+  test('editar un trabajo usa su fecha y no toca lo recordado', async () => {
     const lugarId = await lugarConTipos()
     const trabajoId = await anotarTrabajo(lugarId, '2026-10-05')
     recordar(FECHA_PAPEL, 1 * MIN)
     const { user } = renderEn(`/trabajo/${trabajoId}`)
-    expect(await screen.findByLabelText('Fecha')).toHaveValue('2026-10-05')
-    expect(screen.queryByText(/No es hoy/)).not.toBeInTheDocument()
+    expect(await fechaElegida()).toBe('2026-10-05')
     await user.click(screen.getByRole('radio', { name: /Limpieza/ }))
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     await screen.findByRole('heading', { name: 'Origen' })

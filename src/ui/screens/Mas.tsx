@@ -5,6 +5,7 @@ import { tienePin } from '../../data/pin'
 import { db } from '../../data/db'
 import type { Lugar } from '../../domain/types'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import { useHoy } from '../hooks/useHoy'
 import FilaMas from './mas/FilaMas'
 import RecordatoriosCalendario from './mas/RecordatoriosCalendario'
@@ -32,7 +33,7 @@ export default function Mas() {
   const lugares = useLiveQuery(() => db.lugares.toArray(), [])
   const conPin = useLiveQuery(() => tienePin(), [])
   const aviso = useAvisoDeNavegacion()
-  if (lugares === undefined || conPin === undefined) return null // cargando
+  if (lugares === undefined || conPin === undefined) return <Cargando />
 
   const activos = lugares.filter((l) => !l.archivado).sort(porNombre)
   const archivados = lugares.filter((l) => l.archivado).length

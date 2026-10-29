@@ -8,10 +8,12 @@ import { nombrePeriodo, type Periodo } from '../../domain/periodos'
 import type { Lugar, Pago, TipoPago, Trabajo } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
 import MoneyInput, { ERROR_MONTO } from '../components/MoneyInput'
+import SelectorFecha from '../components/SelectorFecha'
 import useVolver from '../components/useVolver'
 import { pesosJuntos } from '../pesos'
 import ListaTildable from './periodo/ListaTildable'
@@ -23,7 +25,7 @@ export default function RegistrarPago() {
   const [params] = useSearchParams()
   const volver = useVolver(id ? `/lugares/${id}` : '/lugares')
   const datos = useDatosLugar(id)
-  if (datos === undefined) return null // cargando
+  if (datos === undefined) return <Cargando />
   if (!datos.lugar) {
     return (
       <section>
@@ -85,7 +87,6 @@ function Formulario({ lugar, trabajos, pagos, periodo }: { lugar: Lugar; trabajo
   const recibido = monto !== null && monto > 0 ? monto : null
 
   const errMonto = !intentado ? null : montoInvalido ? ERROR_MONTO : recibido === null ? 'Ingresá un monto mayor a 0' : null
-  const errFecha = intentado && fecha === '' ? 'Elegí la fecha' : null
 
   function cambiar(id: string, tildado: boolean) {
     setTildados((previo) => {
@@ -100,7 +101,7 @@ function Formulario({ lugar, trabajos, pagos, periodo }: { lugar: Lugar; trabajo
     e.preventDefault()
     if (guardandoRef.current) return
     setError(null)
-    if (recibido === null || montoInvalido || fecha === '') {
+    if (recibido === null || montoInvalido) {
       setIntentado(true)
       return
     }
@@ -152,9 +153,7 @@ function Formulario({ lugar, trabajos, pagos, periodo }: { lugar: Lugar; trabajo
             onInvalidChange={setMontoInvalido}
             error={errMonto}
           />
-          <Field label="Fecha del pago" error={errFecha}>
-            {(control) => <input {...control} className="input" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />}
-          </Field>
+          <SelectorFecha label="Fecha del pago" value={fecha} onChange={setFecha} />
           <Field label="Nota (opcional)">
             {(control) => (
               <input {...control} className="input" type="text" autoComplete="off" placeholder="Ej: transferencia" value={nota} onChange={(e) => setNota(e.target.value)} />

@@ -7,6 +7,7 @@ import type { FechaISO } from '../../domain/dates'
 import { compartirArchivo } from '../../platform/compartir'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
 import useVolver from '../components/useVolver'
@@ -131,6 +132,7 @@ export default function Copia() {
         <p className="copia__estado" role="status">
           {mensaje}
         </p>
+        {estado === undefined && <Cargando />}
         {preparado?.ok === false && (
           <p className="field__error copia__error" role="alert">
             {preparado.error}

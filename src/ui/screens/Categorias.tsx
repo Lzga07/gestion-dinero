@@ -4,6 +4,7 @@ import { db } from '../../data/db'
 import type { Categoria } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import Encabezado from '../components/Encabezado'
 import useVolver from '../components/useVolver'
 import FormCategoria from './categorias/FormCategoria'
@@ -21,7 +22,7 @@ export default function Categorias() {
   /** `undefined` = mirando la lista; `null` = creando una nueva; una categoría = editándola. */
   const [editando, setEditando] = useState<Categoria | null | undefined>(undefined)
 
-  if (categorias === undefined) return null // cargando
+  if (categorias === undefined) return <Cargando />
   if (editando !== undefined) {
     return (
       <FormCategoria

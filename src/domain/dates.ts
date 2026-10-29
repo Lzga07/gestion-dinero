@@ -8,6 +8,8 @@ const MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
+const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
 const dos = (n: number) => String(n).padStart(2, '0');
 
 /** Fecha local de hoy (o del `now` dado), usando getters locales. */
@@ -81,4 +83,17 @@ export function formatFechaLarga(f: FechaISO): string {
 /** "Octubre": nombre completo del mes de la fecha. */
 export function nombreMes(f: FechaISO): string {
   return MESES[parseFecha(f).m - 1];
+}
+
+/** Día de la semana de la fecha, con la semana empezando el lunes: 0 = lunes … 6 = domingo. */
+export function diaDeSemana(f: FechaISO): number {
+  const { y, m, d } = parseFecha(f);
+  return (new Date(y, m - 1, d).getDay() + 6) % 7;
+}
+
+/** "Miércoles 28 de octubre"; con " de 2025" si no es del año de `hoy`. */
+export function formatFechaConDia(f: FechaISO, hoy: FechaISO): string {
+  const { y, m, d } = parseFecha(f);
+  const anio = f.slice(0, 4) === hoy.slice(0, 4) ? '' : ` de ${y}`;
+  return `${DIAS[diaDeSemana(f)]} ${d} de ${MESES[m - 1].toLowerCase()}${anio}`;
 }

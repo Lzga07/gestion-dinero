@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import {
   aFecha,
+  diaDeSemana,
   diaAcotado,
   diasEnMes,
   diasEntre,
+  formatFechaConDia,
   formatFechaCorta,
   formatFechaLarga,
   nombreMes,
@@ -83,5 +85,21 @@ describe('nombreMes', () => {
     expect(nombreMes('2026-10-27')).toBe('Octubre');
     expect(nombreMes('2026-01-05')).toBe('Enero');
     expect(nombreMes('2026-12-31')).toBe('Diciembre');
+  });
+});
+
+describe('diaDeSemana', () => {
+  test('0 es lunes y 6 domingo (la semana empieza el lunes)', () => {
+    expect(diaDeSemana('2026-10-26')).toBe(0); // lunes
+    expect(diaDeSemana('2026-10-28')).toBe(2); // miércoles
+    expect(diaDeSemana('2026-11-01')).toBe(6); // domingo
+  });
+});
+
+describe('formatFechaConDia', () => {
+  test('día de la semana, día y mes; el año solo si no es el de hoy', () => {
+    expect(formatFechaConDia('2026-10-28', '2026-10-28')).toBe('Miércoles 28 de octubre');
+    expect(formatFechaConDia('2026-02-01', '2026-10-28')).toBe('Domingo 1 de febrero');
+    expect(formatFechaConDia('2025-12-31', '2026-10-28')).toBe('Miércoles 31 de diciembre de 2025');
   });
 });

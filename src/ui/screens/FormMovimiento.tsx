@@ -8,10 +8,12 @@ import type { Centavos } from '../../domain/money'
 import type { Categoria, Movimiento, TipoMovimiento } from '../../domain/types'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import Cargando from '../components/Cargando'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Encabezado from '../components/Encabezado'
 import Field from '../components/Field'
 import MoneyInput, { ERROR_MONTO } from '../components/MoneyInput'
+import SelectorFecha from '../components/SelectorFecha'
 import useVolver from '../components/useVolver'
 import { mensajeErrorDatos } from '../mensajes-datos'
 
@@ -35,7 +37,7 @@ export default function FormMovimiento() {
     [id],
   )
 
-  if (datos === undefined) return null // cargando
+  if (datos === undefined) return <Cargando />
   if (id && !datos.movimiento) {
     return (
       <section>
@@ -103,9 +105,8 @@ function Formulario({ tipo, datos }: { tipo: TipoMovimiento; datos: Datos }) {
   // ---- Validación ----
   const ver = intentado > 0
   const errMonto = !ver ? null : montoInvalido ? ERROR_MONTO : !monto ? 'Ingresá un monto mayor a 0' : null
-  const errFecha = ver && fecha === '' ? 'Elegí la fecha' : null
   const errCategoria = ver && categoriaId === null ? 'Elegí una categoría' : null
-  const hayErrores = montoInvalido || !monto || fecha === '' || categoriaId === null
+  const hayErrores = montoInvalido || !monto || categoriaId === null
 
   // Al fallar el guardado, el foco va al primer campo inválido.
   useEffect(() => {
@@ -175,11 +176,7 @@ function Formulario({ tipo, datos }: { tipo: TipoMovimiento; datos: Datos }) {
         <Card>
           <MoneyInput label="Monto" value={monto} onChange={setMonto} onInvalidChange={setMontoInvalido} error={errMonto} />
 
-          <Field label="Fecha" error={errFecha}>
-            {(control) => (
-              <input {...control} className="input" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-            )}
-          </Field>
+          <SelectorFecha label="Fecha" value={fecha} onChange={setFecha} />
 
           <div className="field">
             <p className="field__label" id="categoria-titulo">

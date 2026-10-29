@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import { hoy, type FechaISO } from '../../domain/dates'
 import type { Centavos } from '../../domain/money'
 import ConfirmDialog from './ConfirmDialog'
-import Field from './Field'
 import MoneyInput, { ERROR_MONTO } from './MoneyInput'
+import SelectorFecha from './SelectorFecha'
 
 interface DialogoYaPagaronProps {
   /** Qué se está cobrando, p. ej. «Corona» del 26 sep. */
@@ -24,13 +24,12 @@ export default function DialogoYaPagaron({ texto, montoInicial, onGuardar, onCan
   const [intentado, setIntentado] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const errFecha = intentado && fecha === '' ? 'Elegí la fecha' : null
   const errMonto = !intentado ? null : invalido ? ERROR_MONTO : monto === null || monto <= 0 ? 'Ingresá un monto mayor a 0' : null
 
   async function guardar() {
     if (guardandoRef.current) return
     setError(null)
-    if (fecha === '' || invalido || monto === null || monto <= 0) {
+    if (invalido || monto === null || monto <= 0) {
       setIntentado(true)
       return
     }
@@ -52,9 +51,7 @@ export default function DialogoYaPagaron({ texto, montoInicial, onGuardar, onCan
       onCancel={onCancel}
     >
       <div className="dialog__campos">
-        <Field label="Fecha del pago" error={errFecha}>
-          {(control) => <input {...control} className="input" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />}
-        </Field>
+        <SelectorFecha label="Fecha del pago" value={fecha} onChange={setFecha} />
         <MoneyInput label="Monto" value={monto} onChange={setMonto} onInvalidChange={setInvalido} error={errMonto} />
         {error && (
           <p className="field__error" role="alert">
