@@ -2167,3 +2167,43 @@ button.lugar-row {
   font-size: 1rem;
   color: var(--text);
 }
+
+/* Cargar meses anteriores: cómo terminó el mes */
+.cierre__opciones {
+  min-width: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.cierre__titulo {
+  margin: 0 0 4px;
+  padding: 0;
+  font-weight: 700;
+}
+
+.cierre__opcion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+.cierre__radio {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.cierre__aviso {
+  margin: 0 0 12px;
+}
+
+.cierre__acciones {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}

@@ -1,11 +1,14 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { db } from '../../data/db'
 import { archivarLugar, crearLugar, guardarTipoTrabajo } from '../../data/lugares'
+import * as datosMeses from '../../data/mesesAnteriores'
 import { marcarNoPagado, registrarPago } from '../../data/pagos'
 import { lugarFijo, reiniciarDb } from '../../data/test-helpers'
+import { resumenPeriodo } from '../../domain/conciliacion'
+import { elegirFecha, fechaElegida } from '../test-fecha'
 import MesesAnteriores from './MesesAnteriores'
 import FilaCarga from './anteriores/FilaCarga'
 import { anotar, septiembre } from './periodo/test-fixtures'
@@ -430,5 +433,247 @@ describe('FilaCarga', () => {
       expect(screen.queryByRole('button', { name: 'Agregar' })).not.toBeInTheDocument()
       expect(screen.queryByLabelText('Día')).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('Cómo terminó el mes', () => {
+  const septiembre75 = async (id: string) => {
+    await anotar(id, '2026-09-05', 'Limpieza', 25000)
+    await anotar(id, '2026-09-12', 'Arreglo', 30000)
+    await anotar(id, '2026-09-20', 'Corona', 20000)
+  }
+  const listo = () => screen.getByRole('button', { name: 'Listo' })
+  const pagos = () => db.pagos.toArray()
+  const estados = async () => (await db.trabajos.toArray()).map((t) => t.estado)
+  const periodoSep = { inicio: '2026-09-01', fin: '2026-09-30' }
+
+  test('sin trabajos no aparece la sección; con trabajos sí, con sus cuatro opciones y "Listo"', async () => {
+    const id = await lugarFijo()
+    const { unmount } = render(
+      <MemoryRouter initialEntries={[`/lugares/${id}/anteriores`]}>
+        <Routes>
+          <Route path="/lugares/:id/anteriores" element={<MesesAnteriores />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await screen.findByText('Sin trabajos')
+    expect(screen.queryByText('¿Cómo terminó este mes?')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Listo' })).not.toBeInTheDocument()
+    unmount()
+
+    await anotar(id, '2026-09-05', 'Limpieza', 25000)
+    renderEn(`/lugares/${id}/anteriores`)
+    expect(await screen.findByText('¿Cómo terminó este mes?')).toBeInTheDocument()
+    for (const nombre of ['Me pagaron todo', 'Me pagaron una parte', 'No me pagaron', 'Todavía no sé']) {
+      expect(screen.getByRole('radio', { name: nombre })).not.toBeChecked()
+    }
+    expect(listo()).toBeInTheDocument()
+  })
+
+  test('"Me pagaron todo": propone la fecha de pago y "Listo" registra un pago FINAL por el total', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Me pagaron todo' }))
+
+    // El pago del lugar es del 21 al 31: se propone el 21 de octubre (ya pasó).
+    expect(await fechaElegida('Fecha del pago')).toBe('2026-10-21')
+    await user.click(listo())
+
+    expect(await screen.findByText('Este mes ya está cerrado.')).toBeInTheDocument()
+    expect(await pagos()).toEqual([
+      expect.objectContaining({ lugarId: id, periodoFin: '2026-09-30', fecha: '2026-10-21', monto: 7500000, tipo: 'FINAL' }),
+    ])
+    expect(await estados()).toEqual(['PAGADO', 'PAGADO', 'PAGADO'])
+    expect(screen.queryByText('¿Cómo terminó este mes?')).not.toBeInTheDocument()
+  })
+
+  test('la fecha del pago se puede cambiar', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Me pagaron todo' }))
+    await elegirFecha(user, '2026-10-24', 'Fecha del pago')
+    await user.click(listo())
+
+    await screen.findByText('Este mes ya está cerrado.')
+    expect((await pagos())[0].fecha).toBe('2026-10-24')
+  })
+
+  test('la fecha propuesta no pasa de hoy', async () => {
+    vi.setSystemTime(new Date(2026, 9, 5, 12))
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Me pagaron todo' }))
+    expect(await fechaElegida('Fecha del pago')).toBe('2026-10-05')
+  })
+
+  test('"Me pagaron una parte": pide cuánto; vacío o 0 avisa y no guarda', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Me pagaron una parte' }))
+    const monto = screen.getByLabelText('¿Cuánto te pagaron?')
+    expect(screen.getByRole('group', { name: 'Fecha del pago' })).toBeInTheDocument()
+
+    await user.click(listo())
+    expect(screen.getByText('Ingresá un monto mayor a 0')).toBeInTheDocument()
+    expect(monto).toHaveFocus()
+
+    await user.type(monto, '0')
+    await user.click(listo())
+    expect(screen.getByText('Ingresá un monto mayor a 0')).toBeInTheDocument()
+    expect(await pagos()).toHaveLength(0)
+    expect(await estados()).toEqual(['PENDIENTE', 'PENDIENTE', 'PENDIENTE'])
+  })
+
+  test('"Me pagaron una parte": 50.000 de 75.000 deja 25.000 de deuda en plata', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Me pagaron una parte' }))
+    await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '50.000')
+    await user.click(listo())
+
+    expect(await screen.findByText('Este mes ya está cerrado.')).toBeInTheDocument()
+    expect(await pagos()).toEqual([expect.objectContaining({ monto: 5000000, tipo: 'FINAL', fecha: '2026-10-21' })])
+    const lugar = (await db.lugares.get(id))!
+    const resumen = resumenPeriodo(lugar, periodoSep, await db.trabajos.toArray(), await pagos())
+    expect(resumen.deudaPlata).toBe(2500000)
+    expect(await estados()).toEqual(['PAGADO', 'PAGADO', 'PAGADO'])
+  })
+
+  test('"Me pagaron una parte" con un monto mayor al total no deja deuda', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Me pagaron una parte' }))
+    await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), '80.000')
+    await user.click(listo())
+
+    await screen.findByText('Este mes ya está cerrado.')
+    const lugar = (await db.lugares.get(id))!
+    const resumen = resumenPeriodo(lugar, periodoSep, await db.trabajos.toArray(), await pagos())
+    expect(resumen.deudaPlata).toBe(0)
+    expect(await estados()).toEqual(['PAGADO', 'PAGADO', 'PAGADO'])
+  })
+
+  test('"Me pagaron una parte" con un monto inválido avisa y no guarda', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Me pagaron una parte' }))
+    await user.type(screen.getByLabelText('¿Cuánto te pagaron?'), 'abc')
+    await user.click(listo())
+
+    expect(screen.getByText('Monto inválido. Usá coma para los decimales (ej: 1.234,50)')).toBeInTheDocument()
+    expect(await pagos()).toHaveLength(0)
+  })
+
+  test('"No me pagaron": todos los trabajos quedan no pagados, sin pagos', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'No me pagaron' }))
+    expect(screen.queryByRole('group', { name: 'Fecha del pago' })).not.toBeInTheDocument()
+    await user.click(listo())
+
+    expect(await screen.findByText('Este mes ya está cerrado.')).toBeInTheDocument()
+    expect(await estados()).toEqual(['NO_PAGADO', 'NO_PAGADO', 'NO_PAGADO'])
+    expect(await pagos()).toHaveLength(0)
+  })
+
+  test('"Todavía no sé": avisa que va a aparecer en Inicio y "Listo" no escribe nada', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Todavía no sé' }))
+    expect(screen.getByText('Este mes va a aparecer en Inicio como pago atrasado hasta que lo resuelvas.')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Fecha del pago' })).not.toBeInTheDocument()
+
+    await user.click(listo())
+    expect(await pagos()).toHaveLength(0)
+    expect(await estados()).toEqual(['PENDIENTE', 'PENDIENTE', 'PENDIENTE'])
+    expect(screen.queryByText('Este mes ya está cerrado.')).not.toBeInTheDocument()
+    expect(agregar()).toBeInTheDocument()
+  })
+
+  test('"Listo" sin elegir cómo terminó avisa y no guarda', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('button', { name: 'Listo' }))
+
+    expect(screen.getByText('Elegí cómo terminó este mes')).toBeInTheDocument()
+    expect(await pagos()).toHaveLength(0)
+    expect(await estados()).toEqual(['PENDIENTE', 'PENDIENTE', 'PENDIENTE'])
+  })
+
+  test('después de cerrar ofrece "Seguir con" el mes siguiente, que conserva el porcentaje y el modo', async () => {
+    const id = await lugarPorcentaje()
+    await anotar(id, '2026-08-10', 'Corona', 100000)
+    const user = renderEn(`/lugares/${id}/anteriores?periodo=2026-08-31`)
+    const pct = await screen.findByLabelText('Porcentaje de este mes')
+    await user.clear(pct)
+    await user.type(pct, '35')
+    await user.selectOptions(screen.getByLabelText('Anoté:'), 'Lo que me tocó')
+
+    expect(screen.queryByRole('button', { name: /^Seguir con/ })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('radio', { name: 'No me pagaron' }))
+    await user.click(listo())
+
+    await user.click(await screen.findByRole('button', { name: 'Seguir con 1 – 30 sep 2026' }))
+    expect(within(mes()).getByText('1 – 30 sep 2026')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Seguir con/ })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Anoté:')).toHaveValue('DIRECTO')
+    await user.selectOptions(screen.getByLabelText('Anoté:'), 'Lo que pagó el cliente')
+    expect(screen.getByLabelText('Porcentaje de este mes')).toHaveValue('35')
+  })
+
+  test('si el siguiente es el período en curso, solo "Terminar", que vuelve a la pantalla del lugar', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'No me pagaron' }))
+    await user.click(listo())
+
+    await screen.findByText('Este mes ya está cerrado.')
+    expect(screen.queryByRole('button', { name: /^Seguir con/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Terminar' }))
+    expect(screen.getByTestId('ubicacion').textContent).toBe(`/lugares/${id}`)
+  })
+
+  test('"Terminar" también está cuando se puede seguir con el mes siguiente', async () => {
+    const id = await lugarFijo()
+    await anotar(id, '2026-08-10', 'Limpieza', 25000)
+    const user = renderEn(`/lugares/${id}/anteriores?periodo=2026-08-31`)
+    await user.click(await screen.findByRole('radio', { name: 'No me pagaron' }))
+    await user.click(listo())
+
+    expect(await screen.findByRole('button', { name: 'Seguir con 1 – 30 sep 2026' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Terminar' }))
+    expect(screen.getByTestId('ubicacion').textContent).toBe(`/lugares/${id}`)
+  })
+
+  test('doble toque en "Listo" registra un solo pago', async () => {
+    const id = await lugarFijo()
+    await septiembre75(id)
+    // El cierre tarda: el segundo envío llega con el primero todavía en curso.
+    const original = datosMeses.cerrarMes
+    const espia = vi.spyOn(datosMeses, 'cerrarMes').mockImplementation(async (...args) => {
+      await new Promise((resolver) => setTimeout(resolver, 30))
+      return original(...args)
+    })
+    const user = renderEn(`/lugares/${id}/anteriores`)
+    await user.click(await screen.findByRole('radio', { name: 'Me pagaron todo' }))
+
+    const form = listo().closest('form')!
+    fireEvent.submit(form)
+    fireEvent.submit(form)
+
+    expect(await screen.findByText('Este mes ya está cerrado.')).toBeInTheDocument()
+    expect(espia).toHaveBeenCalledTimes(1)
+    expect(await pagos()).toHaveLength(1)
   })
 })

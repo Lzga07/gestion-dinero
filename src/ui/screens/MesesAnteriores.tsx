@@ -1,17 +1,19 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { db } from '../../data/db'
 import { mesCerrado } from '../../data/mesesAnteriores'
 import { resumenPeriodo } from '../../domain/conciliacion'
-import { periodoAnterior, periodoQueContiene, type Periodo } from '../../domain/periodos'
+import { nombrePeriodo, periodoAnterior, periodoQueContiene, periodoSiguiente, type Periodo } from '../../domain/periodos'
 import type { Lugar, Pago, Trabajo } from '../../domain/types'
+import Button from '../components/Button'
 import Card from '../components/Card'
 import Cargando from '../components/Cargando'
 import Encabezado from '../components/Encabezado'
 import useVolver from '../components/useVolver'
 import { useHoy } from '../hooks/useHoy'
 import { pesosJuntos } from '../pesos'
+import CierreMes from './anteriores/CierreMes'
 import FilaCarga from './anteriores/FilaCarga'
 import SelectorMes from './anteriores/SelectorMes'
 import { periodoOfrecido } from './anteriores/utils'
@@ -47,6 +49,7 @@ export default function MesesAnteriores() {
 
 function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; pagos: Pago[] }) {
   const hoy = useHoy()
+  const navigate = useNavigate()
   const [params] = useSearchParams()
   // Arranca en `?periodo=` si es un mes ya pasado que se puede cargar; si no, en el anterior al actual.
   const [periodo, setPeriodo] = useState<Periodo>(() => {
@@ -59,11 +62,14 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
   // El porcentaje y el modo de carga son del mes que se está cargando (no del lugar) y se recuerdan al cambiar de mes.
   const [porcentajeBp, setPorcentajeBp] = useState(lugar.porcentajeBp ?? 0)
   const [modo, setModo] = useState<'CLIENTE' | 'DIRECTO'>('CLIENTE')
+  /** Fin del período que se acaba de dar por terminado: ofrece seguir con el mes siguiente o terminar. */
+  const [terminadoFin, setTerminadoFin] = useState<string | null>(null)
   const tipos = useLiveQuery(() => db.tiposTrabajo.where('lugarId').equals(lugar.id).sortBy('orden'), [lugar.id])
 
   const resumen = resumenPeriodo(lugar, periodo, trabajos, pagos)
   const delMes = enOrden(trabajos.filter((tr) => finDe(lugar, tr) === periodo.fin))
   const cerrado = mesCerrado(resumen)
+  const siguiente = periodoSiguiente(lugar.reglasCierre, periodo)
 
   return (
     <>
@@ -113,7 +119,28 @@ function Vista({ lugar, trabajos, pagos }: { lugar: Lugar; trabajos: Trabajo[]; 
         </>
       )}
 
-      {/* Acá va "¿Cómo terminó este mes?" (solo si el mes no está cerrado y tiene trabajos pendientes). */}
+      {!cerrado && delMes.length > 0 && (
+        <CierreMes
+          key={`cierre-${periodo.fin}`}
+          lugar={lugar}
+          periodo={periodo}
+          hoy={hoy}
+          total={sumaMontos(delMes)}
+          onTerminado={() => setTerminadoFin(periodo.fin)}
+        />
+      )}
+
+      {terminadoFin === periodo.fin && (
+        <div className="cierre__acciones">
+          {/* El mes en curso no se puede cargar: ahí solo queda terminar. */}
+          {periodoOfrecido(lugar, siguiente, hoy) && (
+            <Button onClick={() => setPeriodo(siguiente)}>{`Seguir con ${nombrePeriodo(siguiente)} ${siguiente.fin.slice(0, 4)}`}</Button>
+          )}
+          <Button variante="secundario" onClick={() => navigate(`/lugares/${lugar.id}`)}>
+            Terminar
+          </Button>
+        </div>
+      )}
     </>
   )
 }
